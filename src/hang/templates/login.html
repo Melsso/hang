@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block title %}Login{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="/static/css/login.css">
+{% endblock %}
+
+{% block content %}
+<div class="form-container">
+
+    <div class="card">
+
+        <h2>Login</h2>
+
+        {% if errors %}
+            <div class="error-box">
+                {% for err in errors %}
+                <p class="error">{{ err.msg }}</p>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <form method="post" action="/login">
+
+            <div class="field">
+                <input
+                type="email"
+                name="email"
+                placeholder="Email"
+                value="{{ form.get('email', '') if form else '' }}"
+                required
+                >
+            </div>
+
+            <div class="field">
+                <input
+                type="password"
+                name="password"
+                placeholder="Password"
+                value=""
+                required
+                >
+            </div>
+
+            <button type="submit">Login</button>
+
+        </form>
+
+        <p class="switch-link">
+            No account? <a href="/register"> Register</a>
+        </p>
+
+        <a class="back-link" href="/">← Back to home</a>
+
+    </div>
+
+</div>
+{% endblock %}

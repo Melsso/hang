@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+
+{% block title %}Register{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="/static/css/register.css">
+{% endblock %}
+
+{% block content %}
+<div class="form-container">
+
+    <div class="card">
+
+        <h2>Create Account</h2>
+
+        {% if errors %}
+            <div class="error-box">
+                {% for err in errors %}
+                <p class="error">{{ err.msg }}</p>
+            {% endfor %}
+            </div>
+        {% endif %}
+
+        <form method="post" action="/register">
+
+            <div class="field">
+                <input type="text" name="first_name" placeholder="First name"
+                value="{{ form.get('first_name', '') if form else '' }}" required>
+            </div>
+
+            <div class="field">
+                <input type="text" name="last_name" placeholder="Last name"
+                value="{{ form.get('last_name', '') if form else '' }}" required>
+            </div>
+        
+            <div class="field">
+                <input type="email" name="email" placeholder="Email"
+                value="{{ form.get('email', '') if form else '' }}" required>
+            </div>
+            
+            <div class="field">
+                <input type="password" name="password" placeholder="Password" required>
+            </div>
+
+            <div class="field">
+                <input type="date" name="birthdate"
+                value="{{ form.get('birthdate', '') if form else '' }}" required>
+            </div>
+
+            <div class="field">
+                <input type="text" name="gender" placeholder="Gender"
+                value="{{ form.get('gender', '') if form else '' }}" required>
+            </div>
+
+            <div class="field">
+                <input type="text" name="interested_in" placeholder="Interested in"
+                value="{{ form.get('interested_in', '') if form else '' }}" required>
+            </div>
+
+            <div class="field">
+                <input type="text" name="interests" placeholder="Interests"
+                value="{{ form.get('interests', '') if form else '' }}" required>
+            </div>
+
+
+            <div class="field">
+                <textarea name="bio" placeholder="Bio (optional)">{{ form.get('bio', '') if form else '' }}</textarea>
+            </div>
+
+            <button type="submit">Register</button>
+
+        </form>
+
+        <p class="switch-link">
+            Already have an account? <a href="/login"> Login</a>
+        </p>
+
+        <a class="back-link" href="/">← Back to home</a>
+
+    </div>
+
+</div>
+{% endblock %}

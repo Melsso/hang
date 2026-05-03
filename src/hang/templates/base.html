@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block title %}{% endblock %} | Hang</title>
+
+<link rel="stylesheet" href="/static/css/base.css">
+{% block styles %}{% endblock %}
+</head>
+
+<body>
+
+<header class="topbar">
+    <div class="brand">Hang</div>
+</header>
+
+<main class="page">
+    {% block content %}{% endblock %}
+</main>
+
+</body>
+</html>
