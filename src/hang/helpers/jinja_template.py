@@ -1,0 +1,23 @@
+from fastapi.templating import Jinja2Templates
+from fastapi import Request
+from pathlib import Path
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
+
+def render(request: Request, template: str, context: dict | None = None, status_code: int = 200):
+    ctx = {
+        "request": request,
+        "form": {},
+        "errors": []
+    }
+
+    if context:
+        ctx.update(context)
+
+    return templates.TemplateResponse(
+        name=template,
+        context=ctx,
+        request=request,
+        status_code=status_code
+    )

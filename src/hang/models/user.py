@@ -71,6 +71,12 @@ class UserCreate(BaseModel):
     gender: Gender
     interested_in: InterestedIn
     interests: List[Interests]
+    password: str
+
+
+class UserLogin(BaseModel):
+    email: EmailStr
+    password: str
 
 
 class UserResponse(BaseModel):
