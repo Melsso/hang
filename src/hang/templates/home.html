@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+
+{% block title %}App{% endblock %}
+
+{% block content %}
+
+<div class="app-container">
+
+    <div class="top-actions">
+        <button id="profileBtn">Profile</button>
+        <button id="messagesBtn">Messages</button>
+    </div>
+
+    <div class="card-wrapper">
+
+        <div class="card" id="profileCard">
+            <h2 id="name">Loading...</h2>
+            <p id="bio"></p>
+        </div>
+
+    </div>
+
+    <div class="actions">
+        <button class="action-btn" id="leftBtn">👎</button>
+        <button class="action-btn" id="superBtn">⭐</button>
+        <button class="action-btn" id="rightBtn">👍</button>
+    </div>
+
+</div>
+
+<script>
+
+let profiles = [
+    {id: 1, name: "Alexia", bio: "Love hiking and music"},
+    {id: 2, name: "Sam", bio: "Coffee addict & designer"},
+    {id: 3, name: "Jessica", bio: "Gym, tech, travel"}
+];
+
+let index = 0;
+
+const nameEl = document.getElementById("name");
+const bioEl = document.getElementById("bio");
+const card = document.getElementById("profileCard");
+
+function loadProfile(){
+
+    if(index >= profiles.length){
+        nameEl.innerText = "No more profiles";
+        bioEl.innerText = "";
+        return;
+    }
+
+    const p = profiles[index];
+
+    nameEl.innerText = p.name;
+    bioEl.innerText = p.bio;
+}
+
+function swipe(direction){
+
+    if(index >= profiles.length) return;
+
+    const current = profiles[index];
+
+    console.log("swipe:", direction, current.id);
+
+    card.classList.add("swipe-" + direction);
+
+    setTimeout(() => {
+
+        card.classList.remove("swipe-left", "swipe-right", "swipe-super");
+
+        index++;
+        loadProfile();
+
+    }, 200);
+
+}
+
+document.getElementById("leftBtn").onclick = () => swipe("left");
+document.getElementById("rightBtn").onclick = () => swipe("right");
+document.getElementById("superBtn").onclick = () => swipe("super");
+
+document.getElementById("profileBtn").onclick = () => {
+    window.location.href = "/profile";
+};
+
+document.getElementById("messagesBtn").onclick = () => {
+    window.location.href = "/messages";
+};
+
+loadProfile();
+
+</script>
+
+{% endblock %}
