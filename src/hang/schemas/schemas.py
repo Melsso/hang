@@ -1,9 +1,8 @@
 from sqlalchemy import String, Boolean, Date, DateTime, Enum, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, DeclarativeBase
 from datetime import datetime, timezone, date
-from src.hang.models.user import Gender, InterestedIn, Interests
+from src.hang.models.user import Gender, InterestedIn
 from src.hang.models.swipe import SwipeType
-import enum
 
 
 class Base(DeclarativeBase):
@@ -18,6 +17,7 @@ class UserDB(Base):
     first_name: Mapped[str] = mapped_column(String(50))
     last_name: Mapped[str] = mapped_column(String(50))
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
+    password: Mapped[str] = mapped_column(String(255))
 
     country: Mapped[str] = mapped_column(String(2))
     birthdate: Mapped[date] = mapped_column(Date)

@@ -1052,6 +1052,7 @@ files = [
 ]
 
 [package.dependencies]
+cryptography = {version = ">=3.4.0", optional = true, markers = "extra == \"cryptography\""}
 ecdsa = "!=0.15"
 pyasn1 = ">=0.5.0"
 rsa = ">=4.0,<4.1.1 || >4.1.1,<4.4 || >4.4,<5.0"
@@ -1283,4 +1284,4 @@ standard = ["colorama (>=0.4) ; sys_platform == \"win32\"", "httptools (>=0.6.3)
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.11"
-content-hash = "b47d8b3fad1815ca8960031d7900a13f38a578582a0fd2328fcd06d0e76b8760"
+content-hash = "21f85b38f5151c5c8e4364a3d6d85fafd972c3071783b42a81c639e6efe6982d"
