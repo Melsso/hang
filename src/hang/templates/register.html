@@ -2,10 +2,6 @@
 
 {% block title %}Register{% endblock %}
 
-{% block styles %}
-<link rel="stylesheet" href="/static/css/register.css">
-{% endblock %}
-
 {% block content %}
 <div class="form-container">
 
@@ -17,62 +13,101 @@
             <div class="error-box">
                 {% for err in errors %}
                 <p class="error">{{ err.msg }}</p>
-            {% endfor %}
+                {% endfor %}
             </div>
         {% endif %}
 
-        <form method="post" action="/register">
+        <div class="steps">
+            <div class="step active">1</div>
+            <div class="step">2</div>
+            <div class="step">3</div>
+        </div>
 
-            <div class="field">
-                <input type="text" name="first_name" placeholder="First name"
-                value="{{ form.get('first_name', '') if form else '' }}" required>
+        <form method="post" action="/register" id="registerForm">
+
+            <div class="panel active">
+
+                <div class="field">
+                    <input type="text" name="first_name" placeholder="First name"
+                    value="{{ form.get('first_name', '') if form else '' }}" required>
+                </div>
+
+                <div class="field">
+                    <input type="text" name="last_name" placeholder="Last name"
+                    value="{{ form.get('last_name', '') if form else '' }}" required>
+                </div>
+
+                <div class="field">
+                    <input type="email" name="email" placeholder="Email"
+                    value="{{ form.get('email', '') if form else '' }}" required>
+                </div>
+
+                <div class="field">
+                    <input type="password" name="password" placeholder="Password" required>
+                </div>
+
+                <button type="button" class="next-btn">
+                    Next
+                </button>
+
             </div>
 
-            <div class="field">
-                <input type="text" name="last_name" placeholder="Last name"
-                value="{{ form.get('last_name', '') if form else '' }}" required>
-            </div>
-        
-            <div class="field">
-                <input type="email" name="email" placeholder="Email"
-                value="{{ form.get('email', '') if form else '' }}" required>
-            </div>
-            
-            <div class="field">
-                <input type="password" name="password" placeholder="Password" required>
+            <div class="panel">
+
+                <div class="field">
+                    <input type="date" name="birthdate"
+                    value="{{ form.get('birthdate', '') if form else '' }}" required>
+                </div>
+
+                <div class="field">
+                    <input type="text" name="gender" placeholder="Gender"
+                    value="{{ form.get('gender', '') if form else '' }}" required>
+                </div>
+
+                <div class="field">
+                    <input type="text" name="interested_in" placeholder="Interested in"
+                    value="{{ form.get('interested_in', '') if form else '' }}" required>
+                </div>
+
+                <div class="panel-buttons">
+                    <button type="button" class="prev-btn">
+                        Back
+                    </button>
+
+                    <button type="button" class="next-btn">
+                        Next
+                    </button>
+                </div>
+
             </div>
 
-            <div class="field">
-                <input type="date" name="birthdate"
-                value="{{ form.get('birthdate', '') if form else '' }}" required>
+            <div class="panel">
+
+                <div class="field">
+                    <input type="text" name="interests" placeholder="Interests"
+                    value="{{ form.get('interests', '') if form else '' }}" required>
+                </div>
+
+                <div class="field">
+                    <textarea name="bio" placeholder="Bio (optional)">{{ form.get('bio', '') if form else '' }}</textarea>
+                </div>
+
+                <div class="panel-buttons">
+                    <button type="button" class="prev-btn">
+                        Back
+                    </button>
+
+                    <button type="submit">
+                        Register
+                    </button>
+                </div>
+
             </div>
-
-            <div class="field">
-                <input type="text" name="gender" placeholder="Gender"
-                value="{{ form.get('gender', '') if form else '' }}" required>
-            </div>
-
-            <div class="field">
-                <input type="text" name="interested_in" placeholder="Interested in"
-                value="{{ form.get('interested_in', '') if form else '' }}" required>
-            </div>
-
-            <div class="field">
-                <input type="text" name="interests" placeholder="Interests"
-                value="{{ form.get('interests', '') if form else '' }}" required>
-            </div>
-
-
-            <div class="field">
-                <textarea name="bio" placeholder="Bio (optional)">{{ form.get('bio', '') if form else '' }}</textarea>
-            </div>
-
-            <button type="submit">Register</button>
 
         </form>
 
         <p class="switch-link">
-            Already have an account? <a href="/login"> Login</a>
+            Already have an account? <a href="/login">Login</a>
         </p>
 
         <a class="back-link" href="/">← Back to home</a>
@@ -80,4 +115,63 @@
     </div>
 
 </div>
+
+<script>
+
+const panels = document.querySelectorAll(".panel");
+const steps = document.querySelectorAll(".step");
+
+let currentPanel = 0;
+
+function updatePanels(){
+
+    panels.forEach(p => p.classList.remove("active"));
+    steps.forEach(s => s.classList.remove("active"));
+
+    panels[currentPanel].classList.add("active");
+    steps[currentPanel].classList.add("active");
+}
+
+function validateCurrentPanel(){
+
+    const inputs = panels[currentPanel].querySelectorAll("input, textarea");
+
+    for (let input of inputs){
+        if(!input.checkValidity()){
+            input.reportValidity();
+            return false;
+        }
+    }
+
+    return true;
+}
+
+document.querySelectorAll(".next-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+
+        if(!validateCurrentPanel()) return;
+
+        if(currentPanel < panels.length - 1){
+            currentPanel++;
+            updatePanels();
+        }
+
+    });
+});
+
+document.querySelectorAll(".prev-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+
+        if(currentPanel > 0){
+            currentPanel--;
+            updatePanels();
+        }
+
+    });
+});
+
+updatePanels();
+
+</script>
+
 {% endblock %}

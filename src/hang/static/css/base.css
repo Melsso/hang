@@ -202,3 +202,48 @@ form button:hover{
 .back-link:hover{
     color:var(--text);
 }
+
+.panel{
+    display:none;
+    flex-direction:column;
+    gap:12px;
+}
+
+.panel.active{
+    display:flex;
+}
+
+.panel-buttons{
+    display:flex;
+    justify-content:space-between;
+    gap:12px;
+}
+
+.steps{
+    display:flex;
+    justify-content:center;
+    gap:10px;
+    margin-bottom:12px;
+}
+
+.step{
+    width:32px;
+    height:32px;
+
+    border-radius:50%;
+
+    display:flex;
+    align-items:center;
+    justify-content:center;
+
+    background:var(--secondary);
+    color:var(--muted);
+
+    font-size:14px;
+    font-weight:700;
+}
+
+.step.active{
+    background:var(--primary);
+    color:var(--text);
+}
