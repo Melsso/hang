@@ -21,22 +21,11 @@ register_exception_handlers(app)
 
 @app.get("/")
 def landing_get(request: Request):
-    return render(
-        request,
-        "landing.html",
-        {
-            "form": {},
-            "errors": []
-        }
-    )
+    return render(request, "landing.html")
 
 @app.get("/login")
 def login_get(request: Request):
-    return render(
-        request,
-        "login.html",
-        {"form": {}}
-    )
+    return render(request, "login.html")
 
 
 @app.post("/login")
@@ -75,11 +64,7 @@ def login_post(
 
 @app.get("/register")
 def register_get(request: Request):
-    return render(
-        request,
-        "register.html",
-        {"form": {}}
-    )
+    return render(request, "register.html")
 
 
 @app.post("/register")
@@ -119,29 +104,13 @@ def register_post(
 
 @app.get("/home")
 def home_get(request: Request, user=Depends(get_current_user)):
-    return render(
-        request,
-        "home.html",
-        {
-            "form": {},
-            "errors": []
-        }
-    )
+    return render(request, "home.html")
 
 
 @app.get("/profile")
 def profile_get(request: Request, user=Depends(get_current_user)):
-
     user_resp = UserResponse.model_validate(user)
-    return render(
-        request,
-        "profile.html",
-        {
-            "form": {},
-            "errors": [],
-            "user": user_resp.model_dump()
-        }
-    )
+    return render(request, "profile.html", {"user": user_resp.model_dump()})
 
 
 @app.post("/logout")
