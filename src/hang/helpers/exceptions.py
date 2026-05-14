@@ -2,7 +2,7 @@ from fastapi import Request
 from fastapi.exceptions import RequestValidationError
 from pydantic import ValidationError
 
-from src.hang.helpers.jinja_template import render
+from hang.helpers.template_helpers import render
 
 
 def register_exception_handlers(app):

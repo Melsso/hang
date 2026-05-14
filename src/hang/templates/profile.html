@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block title %}Profile{% endblock %}
+
+{% block content %}
+
+<div class="page">
+
+    <div class="container">
+
+        <div class="card">
+
+            <h2>{{ user.first_name }} {{ user.last_name }}</h2>
+
+            <p><strong>Email:</strong> {{ user.email }}</p>
+            <p><strong>Country:</strong> {{ user.country }}</p>
+            <p><strong>Gender:</strong> {{ user.gender }}</p>
+            <p><strong>Interested in:</strong> {{ user.interested_in }}</p>
+
+            <p><strong>Bio:</strong></p>
+            <p>{{ user.bio }}</p>
+
+            <p><strong>Interests:</strong></p>
+            <ul>
+                {% for i in user.interests %}
+                    <li>{{ i }}</li>
+                {% endfor %}
+            </ul>
+
+            <div style="margin-top:20px; display:flex; gap:10px; justify-content:center;">
+                <a class="btn primary" href="/profile/edit">Edit</a>
+
+                <form method="post" action="/logout">
+                    <button class="btn secondary" type="submit">Logout</button>
+                </form>
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}

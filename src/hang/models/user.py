@@ -60,6 +60,9 @@ class User(BaseModel):
             raise ValueError(f"Invalid country code: {v}")
         return v
 
+    class Config:
+        from_attributes = True 
+
 
 class UserCreate(BaseModel):
     first_name: str
@@ -93,6 +96,15 @@ class UserResponse(BaseModel):
     is_active: bool
     created_at: datetime
     updated_at: datetime
+    
+    @field_validator("interests", mode="before")
+    def convert_interests(cls, v):
+        if v is None:
+            return []
+        return [Interests(i) if not isinstance(i, Interests) else i for i in v]
+
+    class Config:
+        from_attributes = True 
 
 
 class UserUpdate(BaseModel):

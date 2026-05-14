@@ -1,48 +1,15 @@
-from fastapi import APIRouter, Depends, Request, HTTPException
-from fastapi.responses import JSONResponse, RedirectResponse
-from passlib.context import CryptContext
-from jose import jwt
+from fastapi import APIRouter, Depends, Request
+from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
-from datetime import datetime, timedelta, timezone
 
-from src.hang.models.user import UserCreate, UserLogin
-from src.hang.models.config import settings
-from src.hang.helpers.jinja_template import render
-from src.hang.database.database import get_db
-from src.hang.schemas.schemas import UserDB
+from hang.models.user import UserCreate, UserLogin, UserResponse
+from hang.helpers.template_helpers import render, form_to_model
+from hang.helpers.auth import verify_password, hash_password, create_access_token, get_current_user
+from hang.database.database import get_db
+from hang.schemas.schemas import UserDB
 
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 router = APIRouter()
-
-def verify_password(plain_password, hashed_password):
-    return pwd_context.verify(plain_password, hashed_password)
-
-
-def create_access_token(data: dict):
-    to_encode = data.copy()
-
-    expire = datetime.now(timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    to_encode.update({"exp": expire})
-
-    return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
-
-
-def form_to_model(model: type):
-    async def dependency(request: Request):
-        form = await request.form()
-        data = dict(form)
-
-        if "interests" in data and isinstance(data["interests"], str):
-            data["interests"] = [
-                item.strip()
-                for item in data["interests"].split(",")
-                if item.strip()
-            ]
-
-        request.state.form_data = data
-        return model.model_validate(data)
-    return dependency
 
 
 @router.get("/")
@@ -76,7 +43,9 @@ def login_post(
     user = db.query(UserDB).filter(UserDB.email == email).first()
 
     if not user or not verify_password(userData.password, user.password):
-        raise HTTPException(status_code=400, detail="Invalid credentials")
+        return render(request, "login.html", {
+            "errors": ["Invalid credentials"]
+        })
 
     token = create_access_token({
         "sub": str(user.user_id),
@@ -115,9 +84,11 @@ def register_post(
     email = userData.email.lower()
     existing_user = db.query(UserDB).filter(UserDB.email == email).first()
     if existing_user:
-        raise HTTPException(status_code=400, detail="Email already registered")
+        return render(request, "register.html", {
+            "errors": ["Email already in use"]
+        })
 
-    hashed_password = pwd_context.hash(userData.password)
+    hashed_password = hash_password(userData.password)
 
     new_user = UserDB(
         first_name=userData.first_name,
@@ -140,7 +111,7 @@ def register_post(
 
 
 @router.get("/home")
-def home_get(request: Request):
+def home_get(request: Request, user=Depends(get_current_user)):
     return render(
         request,
         "home.html",
@@ -149,3 +120,25 @@ def home_get(request: Request):
             "errors": []
         }
     )
+
+
+@router.get("/profile")
+def profile_get(request: Request, user=Depends(get_current_user)):
+
+    user_resp = UserResponse.model_validate(user)
+    return render(
+        request,
+        "profile.html",
+        {
+            "form": {},
+            "errors": [],
+            "user": user_resp.model_dump()
+        }
+    )
+
+
+@router.post("/logout")
+def logout_post():
+    response = RedirectResponse(url="/login", status_code=303)
+    response.delete_cookie("access_token")
+    return response

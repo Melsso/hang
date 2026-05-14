@@ -5,6 +5,24 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent.parent
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
+
+def form_to_model(model: type):
+    async def dependency(request: Request):
+        form = await request.form()
+        data = dict(form)
+
+        if "interests" in data and isinstance(data["interests"], str):
+            data["interests"] = [
+                item.strip()
+                for item in data["interests"].split(",")
+                if item.strip()
+            ]
+
+        request.state.form_data = data
+        return model.model_validate(data)
+    return dependency
+
+
 def render(request: Request, template: str, context: dict | None = None, status_code: int = 200):
     ctx = {
         "request": request,
