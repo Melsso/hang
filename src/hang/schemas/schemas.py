@@ -1,4 +1,5 @@
 from sqlalchemy import String, Boolean, Date, DateTime, Enum, ForeignKey
+from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Mapped, mapped_column, DeclarativeBase
 from datetime import datetime, timezone, date
 from src.hang.models.user import Gender, InterestedIn
@@ -19,14 +20,15 @@ class UserDB(Base):
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
     password: Mapped[str] = mapped_column(String(255))
 
-    country: Mapped[str] = mapped_column(String(2))
+    country: Mapped[str] = mapped_column(String(2), default="DE")
     birthdate: Mapped[date] = mapped_column(Date)
 
     bio: Mapped[str] = mapped_column(String(500))
 
     gender: Mapped[Gender] = mapped_column(Enum(Gender))
     interested_in: Mapped[InterestedIn] = mapped_column(Enum(InterestedIn))
-
+    interests: Mapped[list[str]] = mapped_column(ARRAY(String), nullable=False, default=list)    
+    
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
     created_at: Mapped[datetime] = mapped_column(

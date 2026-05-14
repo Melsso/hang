@@ -65,7 +65,6 @@ class UserCreate(BaseModel):
     first_name: str
     last_name: str
     email: EmailStr
-    country: str
     birthdate: date
     bio: str
     gender: Gender

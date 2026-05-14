@@ -32,6 +32,14 @@ def form_to_model(model: type):
     async def dependency(request: Request):
         form = await request.form()
         data = dict(form)
+
+        if "interests" in data and isinstance(data["interests"], str):
+            data["interests"] = [
+                item.strip()
+                for item in data["interests"].split(",")
+                if item.strip()
+            ]
+
         request.state.form_data = data
         return model.model_validate(data)
     return dependency
@@ -75,7 +83,7 @@ def login_post(
         "email": user.email
     })
 
-    response = RedirectResponse(url="/", status_code=303)
+    response = RedirectResponse(url="/home", status_code=303)
 
     response.set_cookie(
         key="access_token",
@@ -105,7 +113,6 @@ def register_post(
     db: Session = Depends(get_db)
 ):
     email = userData.email.lower()
-
     existing_user = db.query(UserDB).filter(UserDB.email == email).first()
     if existing_user:
         raise HTTPException(status_code=400, detail="Email already registered")
@@ -117,11 +124,11 @@ def register_post(
         last_name=userData.last_name,
         email=email,
         password=hashed_password,
-        country=userData.country,
         birthdate=userData.birthdate,
         bio=userData.bio,
         gender=userData.gender,
         interested_in=userData.interested_in,
+        interests=userData.interests,
         is_active=True
     )
 
