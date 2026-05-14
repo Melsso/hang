@@ -1,4 +1,4 @@
-from fastapi import Depends, Request
+from fastapi import Depends, Request, HTTPException
 from fastapi.responses import RedirectResponse
 from passlib.context import CryptContext
 from jose import jwt, JWTError
@@ -8,7 +8,7 @@ from datetime import datetime, timedelta, timezone
 
 from hang.models.config import settings
 from hang.schemas.schemas import UserDB
-from hang.database.database import get_db
+from hang.helpers.database import get_db
 
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -33,23 +33,24 @@ def create_access_token(data: dict):
 
 def get_current_user(request: Request, db: Session = Depends(get_db)):
     token = request.cookies.get("access_token")
-    print(type(token))
+
     if not token:
-        return RedirectResponse("/login", status_code=302)
+        raise HTTPException(status_code=401, detail="Not authenticated")
 
     try:
-        payload = jwt.decode(
-            token,
-            settings.SECRET_KEY,
-            algorithms=[settings.ALGORITHM]
-        )
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
 
-        user_id = int(payload.get("sub"))
-        user = db.query(UserDB).filter(UserDB.user_id == user_id).first()
+        user_id = payload.get("sub")
+
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Invalid token")
+
+        user = db.query(UserDB).filter(UserDB.user_id == int(user_id)).first()
+
         if not user:
-            return RedirectResponse("/login", status_code=302)
+            raise HTTPException(status_code=404, detail="User not found")
+
         return user
 
-    except JWTError as e:
-        print("JWT FAILED:", repr(e))
-        return RedirectResponse("/login", status_code=302)
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
