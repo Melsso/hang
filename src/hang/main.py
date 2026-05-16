@@ -4,7 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 import pycountry
 
-from hang.models.user import UserCreate, UserLogin, UserResponse, UserUpdate, Interests
+from hang.models.user import UserCreate, UserLogin, UserResponse, UserUpdate, Interests, UserSwipeProfile
 from hang.schemas.schemas import Base, UserDB
 from hang.helpers.database import engine, get_db
 from hang.helpers.exceptions import register_exception_handlers
@@ -115,8 +115,26 @@ def register_post(
 
 
 @app.get("/home")
-def home_get(request: Request, user=Depends(get_current_user)):
-    return render(request, "home.html")
+def home_get(
+    request: Request, 
+    user=Depends(get_current_user), 
+    db=Depends(get_db)
+):
+    users = (
+        db.query(UserDB)
+        .filter(UserDB.user_id != user.user_id)
+        .filter(UserDB.is_active == True)
+        .all()
+    )    
+    profiles = [UserSwipeProfile.model_validate(u) for u in users]
+    
+    return render(
+            request, 
+            "home.html",
+            {
+                "profiles": [p.model_dump() for p in profiles] 
+            }
+        )
 
 
 @app.get("/profile")

@@ -14,6 +14,7 @@ def register_exception_handlers(app):
         if exc.status_code == 401:
             return RedirectResponse(url="/login", status_code=303)
 
+        #TODO this is random, make this intentional
         return render(
             request,
             "error.html",
@@ -29,16 +30,10 @@ def register_exception_handlers(app):
 
         errors = exc.errors()
         form = getattr(request.state, "form_data", {})
-        path = request.url.path
-
-        template_map = {
-            "/register": "register.html",
-            "/login": "login.html"
-        }
 
         return render(
             request,
-            template_map.get(path, "register.html"),
+            "register.html",
             {
                 "errors": errors,
                 "form": form
@@ -51,16 +46,10 @@ def register_exception_handlers(app):
 
         errors = exc.errors()
         form = getattr(request.state, "form_data", {})
-        path = request.url.path
-
-        template_map = {
-            "/register": "register.html",
-            "/login": "login.html"
-        }
 
         return render(
             request,
-            template_map.get(path, "register.html"),
+            "login.html",
             {
                 "errors": errors,
                 "form": form

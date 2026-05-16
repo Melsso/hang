@@ -38,11 +38,7 @@
 
 <script>
 
-let profiles = [
-    {id: 1, name: "Alexia", bio: "Love hiking and music"},
-    {id: 2, name: "Sam", bio: "Coffee addict & designer"},
-    {id: 3, name: "Jessica", bio: "Gym, tech, travel"}
-];
+let profiles = {{ profiles | tojson }};
 
 let index = 0;
 
@@ -60,7 +56,7 @@ function loadProfile(){
 
     const p = profiles[index];
 
-    nameEl.innerText = p.name;
+    nameEl.innerText = p.first_name;
     bioEl.innerText = p.bio;
 }
 
