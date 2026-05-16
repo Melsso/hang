@@ -2,43 +2,213 @@
 
 {% block title %}Profile{% endblock %}
 
+{% block styles %}
+<link rel="stylesheet" href="/static/css/profile.css">
+{% endblock %}
+
 {% block content %}
 
-<div class="page">
+<div class="container">
 
-    <div class="container">
+    <div class="profile-header">
+        <div class="profile-avatar">
+            {{ user.first_name[0] }}{{ user.last_name[0] }}
+        </div>
 
-        <div class="card">
+        <div class="profile-name">
+            {{ user.first_name }} {{ user.last_name }}
+        </div>
+    </div>
+    <div class="profile-card">
+        {% if edit_mode %}
+        <form method="post" action="/profile">
+        {% endif %}
 
-            <h2>{{ user.first_name }} {{ user.last_name }}</h2>
+        <div class="profile-section">
+            <div class="profile-label">Email</div>
 
-            <p><strong>Email:</strong> {{ user.email }}</p>
-            <p><strong>Country:</strong> {{ user.country }}</p>
-            <p><strong>Gender:</strong> {{ user.gender }}</p>
-            <p><strong>Interested in:</strong> {{ user.interested_in }}</p>
+            {% if edit_mode %}
+                <input type="email" name="email" value="{{ user.email }}">
+            {% else %}
+                <div class="profile-value">{{ user.email }}</div>
+            {% endif %}
+        </div>
 
-            <p><strong>Bio:</strong></p>
-            <p>{{ user.bio }}</p>
+        <div class="profile-section">
+            <div class="profile-label">Country</div>
 
-            <p><strong>Interests:</strong></p>
-            <ul>
-                {% for i in user.interests %}
-                    <li>{{ i }}</li>
-                {% endfor %}
-            </ul>
+            {% if edit_mode %}
+                <select name="country">
+                    {% for c in countries %}
+                        <option value="{{ c.code }}"
+                            {% if user.country == c.code %}selected{% endif %}>
+                            {{ c.name }} ({{ c.code }})
+                        </option>
+                    {% endfor %}
+                </select>
+            {% else %}
+                <div class="profile-value">{{ user.country }}</div>
+            {% endif %}
+        </div>
 
-            <div style="margin-top:20px; display:flex; gap:10px; justify-content:center;">
-                <a class="btn primary" href="/profile/edit">Edit</a>
+        <div class="profile-section">
+            <div class="profile-label">Gender</div>
 
-                <form method="post" action="/logout">
-                    <button class="btn secondary" type="submit">Logout</button>
-                </form>
-            </div>
+            {% if edit_mode %}
+                <select name="gender">
+                    <option value="male" {% if user.gender == "male" %}selected{% endif %}>Male</option>
+                    <option value="female" {% if user.gender == "female" %}selected{% endif %}>Female</option>
+                    <option value="other" {% if user.gender == "other" %}selected{% endif %}>Other</option>
+                </select>
+            {% else %}
+                <div class="profile-value">{{ user.gender }}</div>
+            {% endif %}
+        </div>
+
+        <div class="profile-section">
+            <div class="profile-label">Interested In</div>
+
+            {% if edit_mode %}
+                <select name="interested_in">
+                    <option value="male" {% if user.interested_in == "male" %}selected{% endif %}>Men</option>
+                    <option value="female" {% if user.interested_in == "female" %}selected{% endif %}>Women</option>
+                    <option value="everyone" {% if user.interested_in == "both" %}selected{% endif %}>Everyone</option>
+                </select>
+            {% else %}
+                <div class="profile-value">{{ user.interested_in }}</div>
+            {% endif %}
+        </div>
+
+        <div class="profile-section">
+            <div class="profile-label">Bio</div>
+
+            {% if edit_mode %}
+                <textarea name="bio">{{ user.bio }}</textarea>
+            {% else %}
+                <div class="profile-value">{{ user.bio }}</div>
+            {% endif %}
+        </div>
+
+        <div class="profile-section">
+            <div class="profile-label">Interests</div>
+
+            {% if edit_mode %}
+                <div class="field">
+                    <div class="multi-select" id="interestsDropdown">
+
+                        <div class="multi-select-display" id="selectedInterests">
+                            Loading...
+                        </div>
+
+                        <div class="multi-select-options hidden" id="interestOptions">
+                            {% for i in interests %}
+                                <div class="option" data-value="{{ i.value }}">
+                                    {{ i.value }}
+                                </div>
+                            {% endfor %}
+                        </div>
+
+                    </div>
+
+                    <input type="hidden" name="interests" id="interestsInput">
+                </div>
+            {% else %}
+                <div class="profile-value">
+                    {{ user.interests | join(", ") }}
+                </div>
+            {% endif %}
+        </div>
+
+        <div style="margin-top:20px; display:flex; gap:10px; justify-content:center;">
+
+            {% if edit_mode %}
+
+                <button class="btn primary" type="submit">
+                    Save
+                </button>
+
+                <a class="btn secondary" href="/profile">
+                    Cancel
+                </a>
+
+            {% else %}
+
+                <a class="btn primary" href="/profile?edit=true">
+                    Edit
+                </a>
+
+                <a class="btn secondary" href="/home">
+                    Home
+                </a>
+
+            {% endif %}
 
         </div>
+
+        {% if edit_mode %}
+        </form>
+        {% endif %}
 
     </div>
 
 </div>
+
+<script>
+
+const dropdown = document.getElementById("interestsDropdown");
+const options = document.getElementById("interestOptions");
+const display = document.getElementById("selectedInterests");
+const input = document.getElementById("interestsInput");
+
+let selected = {{ user.interests | tojson }};
+
+function renderSelected(){
+    display.innerText = selected.length
+        ? selected.join(", ")
+        : "Select interests";
+
+    input.value = selected.join(",");
+
+    document.querySelectorAll("#interestOptions .option").forEach(opt => {
+        const value = opt.dataset.value;
+
+        if(selected.includes(value)){
+            opt.style.background = "rgba(255,255,255,0.1)";
+        } else {
+            opt.style.background = "";
+        }
+    });
+}
+
+dropdown.addEventListener("click", () => {
+    options.classList.toggle("hidden");
+});
+
+options.querySelectorAll(".option").forEach(opt => {
+    opt.addEventListener("click", (e) => {
+
+        const value = opt.dataset.value;
+
+        if(selected.includes(value)){
+            selected = selected.filter(v => v !== value);
+        } else {
+            selected.push(value);
+        }
+
+        renderSelected();
+
+        e.stopPropagation();
+    });
+});
+
+document.addEventListener("click", (e) => {
+    if(!dropdown.contains(e.target)){
+        options.classList.add("hidden");
+    }
+});
+
+renderSelected();
+
+</script>
 
 {% endblock %}
