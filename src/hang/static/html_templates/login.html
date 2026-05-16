@@ -2,6 +2,10 @@
 
 {% block title %}Login{% endblock %}
 
+{% block styles %}
+<link rel="stylesheet" href="/static/css/login.css">
+{% endblock %}
+
 {% block content %}
 <div class="form-container">
 
@@ -18,25 +22,26 @@
         {% endif %}
 
         <form method="post" action="/login">
-
-            <div class="field">
-                <input
-                type="email"
-                name="email"
-                placeholder="Email"
-                value="{{ form.get('email', '') if form else '' }}"
-                required
-                >
-            </div>
-
-            <div class="field">
-                <input
-                type="password"
-                name="password"
-                placeholder="Password"
-                value=""
-                required
-                >
+            <div class="form-fields">
+                <div class="field">
+                    <input
+                    type="email"
+                    name="email"
+                    placeholder="Email"
+                    value="{{ form.get('email', '') if form else '' }}"
+                    required
+                    >
+                </div>
+    
+                <div class="field">
+                    <input
+                    type="password"
+                    name="password"
+                    placeholder="Password"
+                    value=""
+                    required
+                    >
+                </div>
             </div>
 
             <button type="submit">Login</button>
