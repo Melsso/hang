@@ -1,5 +1,6 @@
 from pydantic_settings import BaseSettings
 
+
 class Settings(BaseSettings):
     DB_USER: str
     DB_PASSWORD: str
@@ -9,7 +10,7 @@ class Settings(BaseSettings):
 
     DEBUG: bool = False
     SECRET_KEY: str
-    ALGORITHM : str
+    ALGORITHM: str
     ACCESS_TOKEN_EXPIRE_MINUTES: int
 
     class Config:

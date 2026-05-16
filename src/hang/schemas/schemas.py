@@ -27,19 +27,20 @@ class UserDB(Base):
 
     gender: Mapped[Gender] = mapped_column(Enum(Gender))
     interested_in: Mapped[InterestedIn] = mapped_column(Enum(InterestedIn))
-    interests: Mapped[list[str]] = mapped_column(ARRAY(String), nullable=False, default=list)    
-    
+    interests: Mapped[list[str]] = mapped_column(
+        ARRAY(String), nullable=False, default=list
+    )
+
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc)
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
 
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
-        onupdate=lambda: datetime.now(timezone.utc)
+        onupdate=lambda: datetime.now(timezone.utc),
     )
 
 
@@ -49,14 +50,10 @@ class MessageDB(Base):
     message_id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
 
     conversation_id: Mapped[int] = mapped_column(
-        ForeignKey("conversations.conversation_id"),
-        index=True
+        ForeignKey("conversations.conversation_id"), index=True
     )
 
-    sender_id: Mapped[int] = mapped_column(
-        ForeignKey("users.user_id"),
-        index=True
-    )
+    sender_id: Mapped[int] = mapped_column(ForeignKey("users.user_id"), index=True)
 
     content: Mapped[str] = mapped_column(String(1000))
 
@@ -65,14 +62,13 @@ class MessageDB(Base):
     reply_to_id: Mapped[int | None] = mapped_column(nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc)
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
 
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
-        onupdate=lambda: datetime.now(timezone.utc)
+        onupdate=lambda: datetime.now(timezone.utc),
     )
 
 
@@ -81,27 +77,20 @@ class ConversationDB(Base):
 
     conversation_id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
 
-    user1_id: Mapped[int] = mapped_column(
-        ForeignKey("users.user_id"),
-        index=True
-    )
+    user1_id: Mapped[int] = mapped_column(ForeignKey("users.user_id"), index=True)
 
-    user2_id: Mapped[int] = mapped_column(
-        ForeignKey("users.user_id"),
-        index=True
-    )
+    user2_id: Mapped[int] = mapped_column(ForeignKey("users.user_id"), index=True)
 
     last_message_id: Mapped[int | None] = mapped_column(nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc)
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
 
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
-        onupdate=lambda: datetime.now(timezone.utc)
+        onupdate=lambda: datetime.now(timezone.utc),
     )
 
 
@@ -110,19 +99,12 @@ class SwipeDB(Base):
 
     swipe_id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
 
-    from_user_id: Mapped[int] = mapped_column(
-        ForeignKey("users.user_id"),
-        index=True
-    )
+    from_user_id: Mapped[int] = mapped_column(ForeignKey("users.user_id"), index=True)
 
-    to_user_id: Mapped[int] = mapped_column(
-        ForeignKey("users.user_id"),
-        index=True
-    )
+    to_user_id: Mapped[int] = mapped_column(ForeignKey("users.user_id"), index=True)
 
     swipe_type: Mapped[SwipeType] = mapped_column(Enum(SwipeType))
 
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc)
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )

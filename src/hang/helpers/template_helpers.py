@@ -13,29 +13,23 @@ def form_to_model(model: type):
 
         if "interests" in data and isinstance(data["interests"], str):
             data["interests"] = [
-                item.strip()
-                for item in data["interests"].split(",")
-                if item.strip()
+                item.strip() for item in data["interests"].split(",") if item.strip()
             ]
 
         request.state.form_data = data
         return model.model_validate(data)
+
     return dependency
 
 
-def render(request: Request, template: str, context: dict | None = None, status_code: int = 200):
-    ctx = {
-        "request": request,
-        "form": {},
-        "errors": []
-    }
+def render(
+    request: Request, template: str, context: dict | None = None, status_code: int = 200
+):
+    ctx = {"request": request, "form": {}, "errors": []}
 
     if context:
         ctx.update(context)
 
     return templates.TemplateResponse(
-        name=template,
-        context=ctx,
-        request=request,
-        status_code=status_code
+        name=template, context=ctx, request=request, status_code=status_code
     )

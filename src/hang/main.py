@@ -4,12 +4,24 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 import pycountry
 
-from hang.models.user import UserCreate, UserLogin, UserResponse, UserUpdate, Interests, UserSwipeProfile
+from hang.models.user import (
+    UserCreate,
+    UserLogin,
+    UserResponse,
+    UserUpdate,
+    Interests,
+    UserSwipeProfile,
+)
 from hang.schemas.schemas import Base, UserDB
 from hang.helpers.database import engine, get_db
 from hang.helpers.exceptions import register_exception_handlers
 from hang.helpers.template_helpers import render, form_to_model
-from hang.helpers.auth import verify_password, hash_password, create_access_token, get_current_user
+from hang.helpers.auth import (
+    verify_password,
+    hash_password,
+    create_access_token,
+    get_current_user,
+)
 
 
 Base.metadata.create_all(bind=engine)
@@ -18,14 +30,13 @@ Base.metadata.create_all(bind=engine)
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="src/hang/static"), name="static")
 register_exception_handlers(app)
-COUNTRIES = [
-    {"code": c.alpha_2, "name": c.name}
-    for c in pycountry.countries
-]
+COUNTRIES = [{"code": c.alpha_2, "name": c.name} for c in pycountry.countries]
+
 
 @app.get("/")
 def landing_get(request: Request):
     return render(request, "landing.html")
+
 
 @app.get("/login")
 def login_get(request: Request):
@@ -36,21 +47,16 @@ def login_get(request: Request):
 def login_post(
     request: Request,
     userData: UserLogin = Depends(form_to_model(UserLogin)),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     email = userData.email.lower()
 
     user = db.query(UserDB).filter(UserDB.email == email).first()
 
     if not user or not verify_password(userData.password, user.password):
-        return render(request, "login.html", {
-            "errors": ["Invalid credentials"]
-        })
+        return render(request, "login.html", {"errors": ["Invalid credentials"]})
 
-    token = create_access_token({
-        "sub": str(user.user_id),
-        "email": user.email
-    })
+    token = create_access_token({"sub": str(user.user_id), "email": user.email})
 
     response = RedirectResponse(url="/home", status_code=303)
 
@@ -59,8 +65,8 @@ def login_post(
         value=token,
         httponly=True,
         samesite="lax",
-        secure=False,   # True for HTTPS laterrs
-        max_age=60 * 60
+        secure=False,  # True for HTTPS laterrs
+        max_age=60 * 60,
     )
 
     return response
@@ -69,27 +75,20 @@ def login_post(
 @app.get("/register")
 def register_get(request: Request):
     return render(
-            request, 
-            "register.html", 
-            {
-                "countries": COUNTRIES, 
-                "interests": Interests
-            }
-        )
+        request, "register.html", {"countries": COUNTRIES, "interests": Interests}
+    )
 
 
 @app.post("/register")
 def register_post(
     request: Request,
     userData: UserCreate = Depends(form_to_model(UserCreate)),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     email = userData.email.lower()
     existing_user = db.query(UserDB).filter(UserDB.email == email).first()
     if existing_user:
-        return render(request, "register.html", {
-            "errors": ["Email already in use"]
-        })
+        return render(request, "register.html", {"errors": ["Email already in use"]})
 
     hashed_password = hash_password(userData.password)
 
@@ -104,7 +103,7 @@ def register_post(
         gender=userData.gender,
         interested_in=userData.interested_in,
         interests=userData.interests,
-        is_active=True
+        is_active=True,
     )
 
     db.add(new_user)
@@ -115,49 +114,41 @@ def register_post(
 
 
 @app.get("/home")
-def home_get(
-    request: Request, 
-    user=Depends(get_current_user), 
-    db=Depends(get_db)
-):
+def home_get(request: Request, user=Depends(get_current_user), db=Depends(get_db)):
     users = (
         db.query(UserDB)
         .filter(UserDB.user_id != user.user_id)
-        .filter(UserDB.is_active == True)
+        .filter(UserDB.is_active)
         .all()
-    )    
+    )
     profiles = [UserSwipeProfile.model_validate(u) for u in users]
-    
+
     return render(
-            request, 
-            "home.html",
-            {
-                "profiles": [p.model_dump() for p in profiles] 
-            }
-        )
+        request, "home.html", {"profiles": [p.model_dump() for p in profiles]}
+    )
 
 
 @app.get("/profile")
 def profile_get(request: Request, edit: bool = False, user=Depends(get_current_user)):
     user_resp = UserResponse.model_validate(user)
     return render(
-            request, 
-            "profile.html", 
-            {
-                "user": user_resp.model_dump(), 
-                "edit_mode": edit, 
-                "countries": COUNTRIES,
-                "interests": Interests,
-            }
-        )
+        request,
+        "profile.html",
+        {
+            "user": user_resp.model_dump(),
+            "edit_mode": edit,
+            "countries": COUNTRIES,
+            "interests": Interests,
+        },
+    )
 
 
 @app.post("/profile")
 def profile_post(
-    request: Request, 
-    userData = Depends(form_to_model(UserUpdate)),
-    user = Depends(get_current_user),
-    db = Depends(get_db),
+    request: Request,
+    userData=Depends(form_to_model(UserUpdate)),
+    user=Depends(get_current_user),
+    db=Depends(get_db),
 ):
     update_data = userData.model_dump(exclude_unset=True)
     if "email" in update_data:
@@ -170,30 +161,25 @@ def profile_post(
         )
         if existing_user:
             return render(
-                    request, 
-                    "profile.html", 
-                    {
-                        "errors": ["Email already in use"], 
-                        "user": UserResponse.model_validate(user).model_dump(), 
-                        "edit_mode": True
-                    }
-                )
+                request,
+                "profile.html",
+                {
+                    "errors": ["Email already in use"],
+                    "user": UserResponse.model_validate(user).model_dump(),
+                    "edit_mode": True,
+                },
+            )
 
     for key, value in update_data.items():
         if getattr(user, key) != value:
             setattr(user, key, value)
     db.commit()
     db.refresh(user)
-    
+
     user_resp = UserResponse.model_validate(user)
     return render(
-            request, 
-            "profile.html", 
-            {
-                "user": user_resp.model_dump(), 
-                "edit_mode": False
-            }
-        )
+        request, "profile.html", {"user": user_resp.model_dump(), "edit_mode": False}
+    )
 
 
 @app.post("/logout")

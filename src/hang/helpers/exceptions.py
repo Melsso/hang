@@ -14,15 +14,12 @@ def register_exception_handlers(app):
         if exc.status_code == 401:
             return RedirectResponse(url="/login", status_code=303)
 
-        #TODO this is random, make this intentional
+        # TODO this is random, make this intentional
         return render(
             request,
             "error.html",
-            {
-                "errors": [exc.detail],
-                "form": {}
-            },
-            status_code=exc.status_code
+            {"errors": [exc.detail], "form": {}},
+            status_code=exc.status_code,
         )
 
     @app.exception_handler(RequestValidationError)
@@ -32,13 +29,7 @@ def register_exception_handlers(app):
         form = getattr(request.state, "form_data", {})
 
         return render(
-            request,
-            "register.html",
-            {
-                "errors": errors,
-                "form": form
-            },
-            status_code=422
+            request, "register.html", {"errors": errors, "form": form}, status_code=422
         )
 
     @app.exception_handler(ValidationError)
@@ -48,11 +39,5 @@ def register_exception_handlers(app):
         form = getattr(request.state, "form_data", {})
 
         return render(
-            request,
-            "login.html",
-            {
-                "errors": errors,
-                "form": form
-            },
-            status_code=422
+            request, "login.html", {"errors": errors, "form": form}, status_code=422
         )
