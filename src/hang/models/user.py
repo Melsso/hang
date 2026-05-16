@@ -71,6 +71,7 @@ class UserCreate(BaseModel):
     birthdate: date
     bio: str
     gender: Gender
+    country: str
     interested_in: InterestedIn
     interests: List[Interests]
     password: str
@@ -104,12 +105,16 @@ class UserResponse(BaseModel):
         return [Interests(i) if not isinstance(i, Interests) else i for i in v]
 
     class Config:
-        from_attributes = True 
+        from_attributes = True
+        use_enum_values = True
 
 
 class UserUpdate(BaseModel):
     first_name: str | None = None
     last_name: str | None = None
+    email: EmailStr | None = None
+    country: str | None = None
+    gender: Gender | None = None
     bio: str | None = None
     interested_in: InterestedIn | None = None
     interests: List[Interests] | None = None
