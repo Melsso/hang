@@ -35,15 +35,6 @@ html, body{
     z-index:1000;
 }
 
-.topbar-inner{
-    width:100%;
-    max-width:1100px;
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    padding:0 20px;
-}
-
 .brand{
     font-weight:800;
     letter-spacing:2px;
@@ -67,32 +58,6 @@ html, body{
     align-items:center;
     justify-content:center;
     text-align:center;
-}
-
-.form-container{
-    flex:1;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    padding:24px 0;
-    overflow:hidden;
-}
-
-.card{
-    width:340px;
-    max-height:calc(100vh - 96px);
-    overflow-y:auto;
-    background:var(--panel);
-    padding:28px;
-    border-radius:12px;
-    display:flex;
-    flex-direction:column;
-    gap:16px;
-}
-
-
-.card.scroll{
-    align-self:flex-start;
 }
 
 form{
@@ -209,133 +174,91 @@ form button:hover{
     gap:12px;
 }
 
-.panel.active{
-    display:flex;
-}
-
-.panel-buttons{
-    display:flex;
-    justify-content:space-between;
-    gap:12px;
-}
-
-.steps{
-    display:flex;
-    justify-content:center;
-    gap:10px;
-    margin-bottom:12px;
-}
-
-.step{
-    width:32px;
-    height:32px;
-
-    border-radius:50%;
-
-    display:flex;
-    align-items:center;
-    justify-content:center;
-
-    background:var(--secondary);
-    color:var(--muted);
-
-    font-size:14px;
-    font-weight:700;
-}
-
-.step.active{
-    background:var(--primary);
-    color:var(--text);
-}
-
-.app-container{
-    height:100%;
-    display:flex;
-    flex-direction:column;
-    justify-content:center;
-    align-items:center;
-    gap:20px;
-}
-
-.top-actions{
-    position:absolute;
-    top:80px;
-    left:50%;
-    transform:translateX(-50%);
-
-    display:flex;
-    gap:12px;
-
-    background:var(--panel);
-    padding:8px 12px;
-    border-radius:999px;
-    border:1px solid rgba(255,255,255,0.08);
-}
-
-.top-actions button{
-    background:transparent;
-    color:var(--text);
-    border:none;
-    padding:6px 10px;
-    border-radius:6px;
-    cursor:pointer;
-    font-size:14px;
-    transition:0.2s ease;
-}
-
-.top-actions button:hover{
-    background:rgba(255,255,255,0.08);
-}
-
-.card-wrapper{
-    width:300px;
-    height:400px;
-    display:flex;
-    justify-content:center;
-    align-items:center;
-}
-
 .card{
-    width:100%;
-    height:100%;
+    width:30%;
+    height:70%;
     background:var(--panel);
     border-radius:16px;
     display:flex;
     flex-direction:column;
     justify-content:center;
     align-items:center;
+    gap:16px;
     text-align:center;
-    padding:20px;
+    padding:28px;
     transition:transform 0.2s ease, opacity 0.2s ease;
 }
 
-.actions{
+.card h2{
+    margin-bottom:10px;
+}
+
+.card form{
     display:flex;
-    gap:20px;
+    flex-direction:column;
+    flex:1;
+    width:70%;
 }
 
-.action-btn{
-    width:60px;
-    height:60px;
-    border-radius:50%;
-    border:none;
+.card .form-fields{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    gap:12px;
+}
+
+.card form button{
+    align-self:center;
+    margin-top:auto;
+    width:40%;
+}
+
+.card .switch-link{
+    margin-top:auto;
+}
+
+.card .back-link{
+    margin-top:6px;
+    color:var(--muted);
+}
+
+.multi-select{
+    position:relative;
+    background:#000;
+    border:1px solid #333;
+    border-radius:6px;
+    padding:10px;
     cursor:pointer;
-    background:var(--secondary);
     color:var(--text);
-    font-size:18px;
 }
 
-.swipe-left{
-    transform:translateX(-300px) rotate(-20deg);
-    opacity:0;
+.multi-select-display{
+    min-height:20px;
 }
 
-.swipe-right{
-    transform:translateX(300px) rotate(20deg);
-    opacity:0;
+.multi-select-options{
+    position:absolute;
+    top:100%;
+    left:0;
+    right:0;
+    background:var(--panel);
+    border:1px solid #333;
+    border-radius:6px;
+    max-height:200px;
+    overflow-y:auto;
+    z-index:1000;
 }
 
-.swipe-super{
-    transform:translateY(-300px) scale(0.8);
-    opacity:0;
+.multi-select-options .option{
+    padding:10px;
+    cursor:pointer;
+}
+
+.multi-select-options .option:hover{
+    background:rgba(255,255,255,0.08);
+}
+
+.hidden{
+    display:none;
 }
