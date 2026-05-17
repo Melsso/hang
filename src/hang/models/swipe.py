@@ -1,6 +1,6 @@
-from pydantic import BaseModel, Field
-from datetime import datetime, timezone
+from pydantic import BaseModel
 from enum import Enum
+from hang.models.conversation import ConversationResponse
 
 
 class SwipeType(str, Enum):
@@ -9,27 +9,11 @@ class SwipeType(str, Enum):
     super_like = "super_like"
 
 
-class Swipe(BaseModel):
-    swipe_id: int
-    from_user_id: int
-    to_user_id: int
-    swipe_type: SwipeType
-
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-
-
 class SwipeCreate(BaseModel):
-    from_user_id: int
     to_user_id: int
     swipe_type: SwipeType
 
 
 class SwipeResponse(BaseModel):
-    swipe_id: int
-    from_user_id: int
-    to_user_id: int
-    swipe_type: SwipeType
-
-    is_match: bool = False
-
-    created_at: datetime
+    success: bool
+    conversation: ConversationResponse | None = None

@@ -12,7 +12,14 @@ from hang.models.user import (
     Interests,
     UserSwipeProfile,
 )
-from hang.schemas.schemas import Base, UserDB
+from hang.models.swipe import SwipeCreate, SwipeType, SwipeResponse
+from hang.models.conversation import (
+    ConversationResponse,
+    ConversationPreview,
+    ConversationListResponse,
+)
+from hang.models.message import MessagePreview, MessageListResponse
+from hang.schemas.schemas import Base, UserDB, SwipeDB, ConversationDB, MessageDB
 from hang.helpers.database import engine, get_db
 from hang.helpers.exceptions import register_exception_handlers
 from hang.helpers.template_helpers import render, form_to_model
@@ -187,3 +194,124 @@ def logout_post():
     response = RedirectResponse(url="/login", status_code=303)
     response.delete_cookie("access_token")
     return response
+
+
+@app.post("/swipe")
+def swipe_post(
+    request: Request,
+    swipeData: SwipeCreate,
+    user=Depends(get_current_user),
+    db=Depends(get_db),
+):
+    swipe = SwipeDB(
+        from_user_id=user.user_id,
+        to_user_id=swipeData.to_user_id,
+        swipe_type=swipeData.swipe_type,
+    )
+    db.add(swipe)
+    db.commit()
+    conversation_out = None
+
+    if swipeData.swipe_type in [SwipeType.like, SwipeType.super_like]:
+        reciprocal_swipe = (
+            db.query(SwipeDB)
+            .filter(SwipeDB.from_user_id == swipeData.to_user_id)
+            .filter(SwipeDB.to_user_id == user.user_id)
+            .filter(SwipeDB.swipe_type.in_([SwipeType.like, SwipeType.super_like]))
+            .first()
+        )
+
+        if reciprocal_swipe:
+            conversation = ConversationDB(
+                user1_id=user.user_id, user2_id=swipeData.to_user_id
+            )
+            db.add(conversation)
+            db.commit()
+            db.refresh(conversation)
+
+            conversation_out = ConversationResponse.model_validate(conversation)
+
+    return SwipeResponse(success=True, conversation=conversation_out)
+
+
+@app.get("/conversations")
+def conversations_get(
+    request: Request,
+    user=Depends(get_current_user),
+    db=Depends(get_db),
+):
+    conversations = (
+        db.query(ConversationDB)
+        .filter(
+            (ConversationDB.user1_id == user.user_id)
+            | (ConversationDB.user2_id == user.user_id)
+        )
+        .order_by(ConversationDB.updated_at.desc())
+        .all()
+    )
+
+    result = []
+
+    for c in conversations:
+        other_user_id = c.user2_id if c.user1_id == user.user_id else c.user1_id
+
+        other_user = db.query(UserDB).filter(UserDB.user_id == other_user_id).first()
+
+        result.append(
+            ConversationPreview(
+                conversation_id=c.conversation_id,
+                other_user_id=other_user_id,
+                other_user_name=other_user.first_name,
+                last_message=c.last_message_id and "Last message placeholder",
+                updated_at=c.updated_at,
+            )
+        )
+
+    response = ConversationListResponse(success=True, conversations=result)
+
+    return render(
+        request,
+        "conversations.html",
+        {"conversations": response.model_dump(mode="json")},
+    )
+
+
+@app.get("/conversations/{conversation_id}")
+def conversations_by_id_get(
+    conversation_id: int,
+    request: Request,
+    user=Depends(get_current_user),
+    db=Depends(get_db),
+):
+    conversation = (
+        db.query(ConversationDB)
+        .filter(ConversationDB.conversation_id == conversation_id)
+        .first()
+    )
+
+    if not conversation:
+        return {"error": "not found"}
+
+    if user.user_id not in [conversation.user1_id, conversation.user2_id]:
+        return {"error": "forbidden"}
+
+    messages = (
+        db.query(MessageDB)
+        .filter(MessageDB.conversation_id == conversation_id)
+        .order_by(MessageDB.created_at.asc())
+        .all()
+    )
+
+    result = [
+        MessagePreview(
+            message_id=m.message_id,
+            sender_id=m.sender_id,
+            content=m.content,
+            created_at=m.created_at,
+        )
+        for m in messages
+    ]
+
+    return MessageListResponse(
+        conversation_id=conversation_id, current_user_id=user.user_id, messages=result
+    )

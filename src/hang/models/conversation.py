@@ -1,21 +1,19 @@
-from pydantic import BaseModel, Field
-from datetime import datetime, timezone
+from pydantic import BaseModel, ConfigDict, Field
+from datetime import datetime
+from typing import List
 
 
-class Conversation(BaseModel):
+class ConversationPreview(BaseModel):
     conversation_id: int
-    user1_id: int
-    user2_id: int
-
-    last_message_id: int | None = None
-
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    other_user_id: int
+    other_user_name: str
+    last_message: str | None
+    updated_at: datetime
 
 
-class ConversationCreate(BaseModel):
-    user1_id: int
-    user2_id: int
+class ConversationListResponse(BaseModel):
+    success: bool
+    conversations: List[ConversationPreview] = Field(default_factory=list)
 
 
 class ConversationResponse(BaseModel):
@@ -28,6 +26,4 @@ class ConversationResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-
-class ConversationUpdate(BaseModel):
-    last_message_id: int | None = None
+    model_config = ConfigDict(from_attributes=True)
