@@ -1,6 +1,6 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from src.hang.models.config import settings
+from hang.models.config import settings
 
 DATABASE_URL = (
     f"postgresql+psycopg://{settings.DB_USER}:{settings.DB_PASSWORD}"

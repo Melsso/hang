@@ -2,8 +2,8 @@ from sqlalchemy import String, Boolean, Date, DateTime, Enum, ForeignKey
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Mapped, mapped_column, DeclarativeBase
 from datetime import datetime, timezone, date
-from src.hang.models.user import Gender, InterestedIn
-from src.hang.models.swipe import SwipeType
+from hang.models.user import Gender, InterestedIn
+from hang.models.swipe import SwipeType
 
 
 class Base(DeclarativeBase):
