@@ -10,6 +10,8 @@
 
 <div class="app-container">
 
+    <div id="notification-container"></div>
+    
     <div class="top-actions">
         <button id="profileBtn">Profile</button>
         <button id="messagesBtn">Messages</button>
@@ -29,9 +31,9 @@
     </div>
 
     <div class="actions">
-        <button class="action-btn" id="leftBtn">👎</button>
-        <button class="action-btn" id="superBtn">⭐</button>
-        <button class="action-btn" id="rightBtn">👍</button>
+        <button class="action-btn" id="passBtn">👎</button>
+        <button class="action-btn" id="super_likeBtn">⭐</button>
+        <button class="action-btn" id="likeBtn">👍</button>
     </div>
 
 </div>
@@ -60,35 +62,66 @@ function loadProfile(){
     bioEl.innerText = p.bio;
 }
 
-function swipe(direction){
+function showNotification(message){
+
+    const container = document.getElementById("notification-container");
+
+    const el = document.createElement("div");
+    el.className = "notification";
+    el.innerText = message;
+
+    container.appendChild(el);
+
+    setTimeout(() => {
+        el.remove();
+    }, 3000);
+}
+
+async function swipe(direction){
 
     if(index >= profiles.length) return;
 
     const current = profiles[index];
 
+    const res = await fetch("/swipe", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            to_user_id: current.user_id,
+            swipe_type: direction
+        })
+    });
+
+    const data = await res.json();
+
     card.classList.add("swipe-" + direction);
 
     setTimeout(() => {
 
-        card.classList.remove("swipe-left", "swipe-right", "swipe-super");
+        card.classList.remove("swipe-pass", "swipe-like", "swipe-super_like");
 
         index++;
         loadProfile();
 
-    }, 200);
+        if (data.conversation) {
+            showNotification(`It's a match with ${current.first_name}!`);
+        }
 
+    }, 200);
 }
 
-document.getElementById("leftBtn").onclick = () => swipe("left");
-document.getElementById("rightBtn").onclick = () => swipe("right");
-document.getElementById("superBtn").onclick = () => swipe("super");
+document.getElementById("passBtn").onclick = () => swipe("pass");
+document.getElementById("likeBtn").onclick = () => swipe("like");
+document.getElementById("super_likeBtn").onclick = () => swipe("super_like");
 
 document.getElementById("profileBtn").onclick = () => {
     window.location.href = "/profile";
 };
 
 document.getElementById("messagesBtn").onclick = () => {
-    window.location.href = "/messages";
+    window.location.href = "/conversations";
 };
 
 loadProfile();

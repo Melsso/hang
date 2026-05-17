@@ -5,6 +5,7 @@
     --muted:rgba(255,255,255,0.7);
     --primary:#e50914;
     --secondary:#222222;
+    --topbar-h: clamp(70px, 5vh, 80px);
 }
 
 *{
@@ -22,17 +23,13 @@ html, body{
 }
 
 .topbar{
-    position:fixed;
-    top:0;
-    left:0;
-    width:100%;
-    height:64px;
+    height:var(--topbar-h);
     display:flex;
     align-items:center;
     justify-content:center;
     background:var(--bg);
     border-bottom:1px solid rgba(255,255,255,0.06);
-    z-index:1000;
+    width:100%;
 }
 
 .brand{
@@ -44,11 +41,28 @@ html, body{
     text-decoration:none;
 }
 
-.page{
-    height:100vh;
-    padding-top:64px;
+.page {
+    min-height:calc(100vh - var(--topbar-h));
     display:flex;
     flex-direction:column;
+    padding:20px;
+    gap:20px;
+}
+
+.app-container{
+    flex: 1;
+    display:flex;
+    flex-direction:column;
+    justify-content:flex-start;
+    align-items:center;
+    gap:20px;
+}
+
+.card-wrapper {
+    flex: 1;
+    width:40%;
+    display:flex;
+    align-items:stretch;
 }
 
 .container{
@@ -261,4 +275,32 @@ form button:hover{
 
 .hidden{
     display:none;
+}
+
+.top-actions {
+    display:flex;
+    justify-content:center;
+    gap:12px;
+    margin:20px auto 20px auto;
+    padding:8px 12px;
+    background:var(--panel);
+    border-radius:999px;
+    border:1px solid rgba(255,255,255,0.08);
+    width:fit-content;
+}
+
+.top-actions button{
+    background:transparent;
+    color:var(--text);
+    border:none;
+    padding:8px 10px;
+    border-radius:6px;
+    cursor:pointer;
+    font-size:14px;
+    font-weight: 600;
+    transition:0.2s ease;
+}
+
+.top-actions button:hover{
+    background:rgba(255,255,255,0.08);
 }

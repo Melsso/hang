@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+
+{% block title %}Messages{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="/static/css/conversations.css">
+{% endblock %}
+
+{% block content %}
+
+<div class="app-container">
+
+    <div class="top-actions">
+        <button onclick="location.href='/profile'">Profile</button>
+        <button onclick="location.href='/home'">Home</button>
+        
+        <form method="post" action="/logout">
+            <button type="submit">Log Out</button>
+        </form>
+    </div>
+
+    <div class="card-wrapper">
+
+        <div class="messages-card">
+
+            <div class="conversations-panel">
+                <h3>Conversations</h3>
+                <div id="conversationList"></div>
+            </div>
+
+            <div class="chat-panel">
+
+                <div class="chat-header" id="chatHeader">
+                    Select a conversation
+                </div>
+
+                <div class="chat-messages" id="chatMessages"></div>
+
+                <div class="chat-input">
+                    <input type="text" id="messageInput" placeholder="Type a message...">
+                    <button id="sendBtn">Send</button>
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+<script>
+
+let response = {{ conversations | tojson }};
+let conversations = response.conversations;
+
+let currentConversationId = null;
+let currentUserId = null;
+
+function renderConversations() {
+    const container = document.getElementById("conversationList");
+    container.innerHTML = "";
+
+    conversations.forEach(c => {
+        const div = document.createElement("div");
+        div.className = "conversation-item";
+        div.innerText = c.other_user_name;
+
+        div.onclick = () => openConversation(c);
+
+        container.appendChild(div);
+    });
+}
+
+async function openConversation(c) {
+    currentConversationId = c.conversation_id;
+
+    document.getElementById("chatHeader").innerText = c.other_user_name;
+
+    const res = await fetch(`/conversations/${c.conversation_id}`);
+    const data = await res.json();
+
+    currentUserId = data.current_user_id;
+
+    const container = document.getElementById("chatMessages");
+    container.innerHTML = "";
+
+    if (data.messages) {
+        data.messages.forEach(m => {
+            const div = document.createElement("div");
+
+            div.className = "message";
+
+            if (m.sender_id === currentUserId) {
+                div.classList.add("mine");
+            } else {
+                div.classList.add("theirs");
+            }
+
+            div.innerText = m.content;
+            container.appendChild(div);
+        });
+    }
+}
+
+renderConversations();
+
+</script>
+
+{% endblock %}
