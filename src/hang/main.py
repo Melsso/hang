@@ -132,7 +132,9 @@ def home_get(request: Request, user=Depends(get_current_user), db=Depends(get_db
     profiles = [UserSwipeProfile.model_validate(u) for u in users]
 
     return render(
-        request, "home.html", {"profiles": [p.model_dump(mode="json") for p in profiles]}
+        request,
+        "home.html",
+        {"profiles": [p.model_dump(mode="json") for p in profiles]},
     )
 
 
@@ -186,7 +188,9 @@ def profile_post(
 
     user_resp = UserResponse.model_validate(user)
     return render(
-        request, "profile.html", {"user": user_resp.model_dump(mode="json"), "edit_mode": False}
+        request,
+        "profile.html",
+        {"user": user_resp.model_dump(mode="json"), "edit_mode": False},
     )
 
 

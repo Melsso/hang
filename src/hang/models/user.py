@@ -124,7 +124,6 @@ class UserSwipeProfile(BaseModel):
     gender: Gender
     images: List[UserImageResponse] = Field(default_factory=list)
 
-
     @field_validator("interests", mode="before")
     def convert_interests(cls, v):
         if v is None:

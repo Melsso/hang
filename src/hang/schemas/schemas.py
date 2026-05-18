@@ -36,7 +36,7 @@ class UserDB(Base):
         cascade="all, delete-orphan",
         order_by="UserImageDB.position",
     )
-    
+
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
     created_at: Mapped[datetime] = mapped_column(
