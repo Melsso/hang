@@ -133,6 +133,11 @@ class UserSwipeProfile(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class ImageUpdate(BaseModel):
+    image_id: int
+    position: int | None = None
+
+
 class UserUpdate(BaseModel):
     first_name: str | None = None
     last_name: str | None = None
@@ -142,3 +147,6 @@ class UserUpdate(BaseModel):
     bio: str | None = None
     interested_in: InterestedIn | None = None
     interests: List[Interests] | None = None
+
+    deleted_images: List[int] | None = []
+    images: List[ImageUpdate] | None = []
