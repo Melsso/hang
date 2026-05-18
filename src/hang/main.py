@@ -1,8 +1,11 @@
-from fastapi import FastAPI, Depends, Request
+from fastapi import FastAPI, Depends, Request, UploadFile, File
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
-import pycountry
+from typing import List
+from uuid import uuid4
+import imghdr
+
 
 from hang.models.user import (
     UserCreate,
@@ -18,8 +21,16 @@ from hang.models.conversation import (
     ConversationPreview,
     ConversationListResponse,
 )
+from hang.models.config import settings
 from hang.models.message import MessagePreview, MessageListResponse
-from hang.schemas.schemas import Base, UserDB, SwipeDB, ConversationDB, MessageDB
+from hang.schemas.schemas import (
+    Base,
+    UserDB,
+    SwipeDB,
+    ConversationDB,
+    MessageDB,
+    UserImageDB,
+)
 from hang.helpers.database import engine, get_db
 from hang.helpers.exceptions import register_exception_handlers
 from hang.helpers.template_helpers import render, form_to_model
@@ -34,12 +45,10 @@ from hang.helpers.auth import (
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
-# TODO move these paths into settings config class
-app.mount("/static", StaticFiles(directory="src/hang/static"), name="static")
-app.mount("/resources", StaticFiles(directory="src/hang/resources"), name="uploads")
+app.mount("/static", StaticFiles(directory=settings.STATIC_DIRECTORY), name="static")
+app.mount("/resources", StaticFiles(directory=settings.IMAGE_DIRECTORY), name="uploads")
 
 register_exception_handlers(app)
-COUNTRIES = [{"code": c.alpha_2, "name": c.name} for c in pycountry.countries]
 
 
 @app.get("/")
@@ -84,7 +93,9 @@ def login_post(
 @app.get("/register")
 def register_get(request: Request):
     return render(
-        request, "register.html", {"countries": COUNTRIES, "interests": Interests}
+        request,
+        "register.html",
+        {"countries": settings.COUNTRIES, "interests": Interests},
     )
 
 
@@ -148,7 +159,7 @@ def profile_get(request: Request, edit: bool = False, user=Depends(get_current_u
         {
             "user": user_resp.model_dump(mode="json"),
             "edit_mode": edit,
-            "countries": COUNTRIES,
+            "countries": settings.COUNTRIES,
             "interests": Interests,
         },
     )
@@ -182,8 +193,37 @@ def profile_post(
             )
 
     for key, value in update_data.items():
-        if getattr(user, key) != value:
+        if key in {"deleted_images", "images"}:
+            continue
+
+        if getattr(user, key, None) != value:
             setattr(user, key, value)
+
+    deleted_img_ids = set(update_data.get("deleted_images") or [])
+    images_to_delete = [img for img in user.images if img.image_id in deleted_img_ids]
+
+    for img in images_to_delete:
+        filename = img.image_url.split("/")[-1]
+        file_path = settings.IMAGE_DIRECTORY / f"users/{user.user_id}" / filename
+        if file_path.exists():
+            file_path.unlink()
+
+        db.delete(img)
+
+    image_updates = update_data.get("images") or []
+    if image_updates:
+        image_map = {img.image_id: img for img in user.images}
+
+        for img_update in image_updates:
+            img_id = img_update.get("image_id")
+            position = img_update.get("position")
+            img = image_map.get(img_id)
+
+            if img and position is not None:
+                img.position = position
+
+        user.images.sort(key=lambda x: x.position)
+
     db.commit()
     db.refresh(user)
 
@@ -191,7 +231,117 @@ def profile_post(
     return render(
         request,
         "profile.html",
-        {"user": user_resp.model_dump(mode="json"), "edit_mode": False},
+        {
+            "user": user_resp.model_dump(mode="json"),
+            "edit_mode": False,
+        },
+    )
+
+
+@app.post("/profile/upload-image")
+async def profile_image_upload_post(
+    request: Request,
+    user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+    files: List[UploadFile] = File(...),
+):
+    errs: List[str] = []
+
+    current_count = len(user.images)
+
+    if current_count + len(files) > settings.MAX_IMAGES:
+        errs.append(f"Maximum of {settings.MAX_IMAGES} images allowed")
+
+    file_payloads = []
+
+    for f in files:
+        contents = await f.read()
+
+        if not contents:
+            errs.append("Empty file provided.")
+
+        if len(contents) > settings.MAX_IMAGE_SIZE:
+            errs.append("File too large.")
+
+        ext = imghdr.what(None, h=contents)
+
+        if ext not in settings.ALLOWED_IMAGE_TYPES:
+            errs.append("Image type not allowed.")
+
+        file_payloads.append((contents, ext))
+
+    if errs:
+        fresh_user = db.query(UserDB).filter(UserDB.user_id == user.user_id).first()
+
+        return render(
+            request,
+            "profile.html",
+            {
+                "user": UserResponse.model_validate(fresh_user).model_dump(mode="json"),
+                "errors": errs,
+                "edit_mode": False,
+                "countries": settings.COUNTRIES,
+                "interests": Interests,
+            },
+        )
+
+    user_image_dir = settings.IMAGE_DIRECTORY / "users" / str(user.user_id)
+    user_image_dir.mkdir(parents=True, exist_ok=True)
+
+    next_position = max((img.position for img in user.images), default=-1) + 1
+
+    try:
+        for contents, ext in file_payloads:
+            filename = f"{uuid4().hex}.{ext}"
+            file_path = user_image_dir / filename
+
+            with open(file_path, "wb") as f:
+                f.write(contents)
+
+            image_url = f"/resources/users/{user.user_id}/{filename}"
+
+            image_db = UserImageDB(
+                user_id=user.user_id,
+                image_url=image_url,
+                position=next_position,
+            )
+
+            db.add(image_db)
+            db.flush()
+
+            next_position += 1
+
+        db.commit()
+
+    except Exception:
+        db.rollback()
+
+        fresh_user = db.query(UserDB).filter(UserDB.user_id == user.user_id).first()
+
+        return render(
+            request,
+            "profile.html",
+            {
+                "user": UserResponse.model_validate(fresh_user).model_dump(mode="json"),
+                "errors": ["Unexpected error happened."],
+                "edit_mode": False,
+                "countries": settings.COUNTRIES,
+                "interests": Interests,
+            },
+        )
+
+    fresh_user = db.query(UserDB).filter(UserDB.user_id == user.user_id).first()
+
+    return render(
+        request,
+        "profile.html",
+        {
+            "user": UserResponse.model_validate(fresh_user).model_dump(mode="json"),
+            "errors": [],
+            "edit_mode": False,
+            "countries": settings.COUNTRIES,
+            "interests": Interests,
+        },
     )
 
 

@@ -1,4 +1,9 @@
 from pydantic_settings import BaseSettings
+from pydantic import field_validator
+from typing import List, Dict
+from typing_extensions import Annotated
+from pathlib import Path
+import pycountry
 
 
 class Settings(BaseSettings):
@@ -12,6 +17,22 @@ class Settings(BaseSettings):
     SECRET_KEY: str
     ALGORITHM: str
     ACCESS_TOKEN_EXPIRE_MINUTES: int
+
+    MAX_IMAGES: int
+    MAX_IMAGE_SIZE: int
+    ALLOWED_IMAGE_TYPES: Annotated[str, "csv"]
+
+    IMAGE_DIRECTORY: Path
+    STATIC_DIRECTORY: Path
+
+    COUNTRIES: List[Dict[str, str]] = [
+        {"code": c.alpha_2, "name": c.name} for c in pycountry.countries
+    ]
+
+    @field_validator("ALLOWED_IMAGE_TYPES", mode="after")
+    @classmethod
+    def split_allowed_image_types(cls, v: str) -> List[str]:
+        return [x.strip() for x in v.split(",") if x.strip()]
 
     class Config:
         env_file = ".api_env"
