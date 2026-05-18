@@ -8,20 +8,68 @@
 
 {% block content %}
 
-<div class="container">
+<div class="top-actions">
+    {% if edit_mode %}
 
-    <div class="profile-header">
-        <div class="profile-avatar">
-            {{ user.first_name[0] }}{{ user.last_name[0] }}
+        <button class="btn primary" type="submit">
+            Save
+        </button>
+
+        <a class="btn secondary" href="/profile">
+            Cancel
+        </a>
+
+    {% else %}
+
+        <a class="btn primary" href="/profile?edit=true">
+            Edit
+        </a>
+
+        <a class="btn secondary" href="/home">
+            Home
+        </a>
+
+    {% endif %}
+    <form method="post" action="/logout">
+        <button type="submit">Log Out</button>
+    </form>
+
+</div>
+
+<div class="container">
+    
+    <div class="profile-image-container">
+
+        <div class="profile-carousel">
+
+            <button class="carousel-btn left" id="prevImage">
+                ‹
+            </button>
+
+            <img
+                id="profileImage"
+                src="{{ user.images[0].image_url if user.images else '/static/images/default_user.png' }}"
+                alt="Profile picture"
+            >
+
+            <button class="carousel-btn right" id="nextImage">
+                ›
+            </button>
+
+            <div class="carousel-dots" id="carouselDots"></div>
+
         </div>
 
+    </div>
+
+    <div class="profile-card">
+        
         <div class="profile-name">
             {{ user.first_name }} {{ user.last_name }}
         </div>
-    </div>
-    <div class="profile-card">
+        
         {% if edit_mode %}
-        <form method="post" action="/profile">
+            <form method="post" action="/profile">
         {% endif %}
 
         <div class="profile-section">
@@ -72,7 +120,7 @@
                 <select name="interested_in">
                     <option value="male" {% if user.interested_in == "male" %}selected{% endif %}>Men</option>
                     <option value="female" {% if user.interested_in == "female" %}selected{% endif %}>Women</option>
-                    <option value="everyone" {% if user.interested_in == "both" %}selected{% endif %}>Everyone</option>
+                    <option value="everyone" {% if user.interested_in == "everyone" %}selected{% endif %}>Everyone</option>
                 </select>
             {% else %}
                 <div class="profile-value">{{ user.interested_in }}</div>
@@ -118,49 +166,29 @@
                 </div>
             {% endif %}
         </div>
-
-        <div style="margin-top:20px; display:flex; gap:10px; justify-content:center;">
-
-            {% if edit_mode %}
-
-                <button class="btn primary" type="submit">
-                    Save
-                </button>
-
-                <a class="btn secondary" href="/profile">
-                    Cancel
-                </a>
-
-            {% else %}
-
-                <a class="btn primary" href="/profile?edit=true">
-                    Edit
-                </a>
-
-                <a class="btn secondary" href="/home">
-                    Home
-                </a>
-
-            {% endif %}
-
-        </div>
-
+        
         {% if edit_mode %}
-        </form>
+            </form>
         {% endif %}
-
+    
     </div>
 
 </div>
 
 <script>
 
+const images = {{ user.images | tojson }};
+let currentImageIndex = 0;
+
 const dropdown = document.getElementById("interestsDropdown");
 const options = document.getElementById("interestOptions");
 const display = document.getElementById("selectedInterests");
 const input = document.getElementById("interestsInput");
 
-let selected = {{ user.interests | tojson }};
+const imageEl = document.getElementById("profileImage");
+const dotsEl = document.getElementById("carouselDots");
+
+let selected = {{ user.interests | tojson }} || [];
 
 function renderSelected(){
     display.innerText = selected.length
@@ -180,6 +208,55 @@ function renderSelected(){
     });
 }
 
+function renderDots(){
+    dotsEl.innerHTML = "";
+
+    images.forEach((_, i) => {
+        const dot = document.createElement("div");
+        dot.className = "carousel-dot";
+
+        if(i === currentImageIndex){
+            dot.classList.add("active");
+        }
+
+        dot.onclick = () => {
+            currentImageIndex = i;
+            updateImage();
+        };
+
+        dotsEl.appendChild(dot);
+    });
+}
+
+function updateImage(){
+    if(!images.length) return;
+
+    imageEl.src = images[currentImageIndex].image_url;
+    renderDots();
+}
+
+document.getElementById("prevImage").onclick = () => {
+    if(!images.length) return;
+
+    currentImageIndex--;
+    if(currentImageIndex < 0){
+        currentImageIndex = images.length - 1;
+    }
+
+    updateImage();
+};
+
+document.getElementById("nextImage").onclick = () => {
+    if(!images.length) return;
+
+    currentImageIndex++;
+    if(currentImageIndex >= images.length){
+        currentImageIndex = 0;
+    }
+
+    updateImage();
+};
+
 dropdown.addEventListener("click", () => {
     options.classList.toggle("hidden");
 });
@@ -196,7 +273,6 @@ options.querySelectorAll(".option").forEach(opt => {
         }
 
         renderSelected();
-
         e.stopPropagation();
     });
 });
@@ -207,7 +283,15 @@ document.addEventListener("click", (e) => {
     }
 });
 
+
 renderSelected();
+if (!images || !images.length) {
+    imageEl.src = "/static/default.png";
+    dotsEl.innerHTML = "";
+} else {
+    currentImageIndex = 0;
+    updateImage();
+}
 
 </script>
 

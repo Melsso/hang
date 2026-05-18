@@ -11,7 +11,7 @@
 <div class="app-container">
 
     <div id="notification-container"></div>
-    
+
     <div class="top-actions">
         <button id="profileBtn">Profile</button>
         <button id="messagesBtn">Messages</button>
@@ -21,12 +21,20 @@
         </form>
     </div>
 
-    <div class="card-wrapper">
+    <div class="swipe-card" id="profileCard">
 
-        <div class="swipe-card" id="profileCard">
-            <h2 id="name">Loading...</h2>
-            <p id="bio"></p>
+        <div class="home-carousel">
+            <button class="carousel-btn left" id="prevImage">‹</button>
+
+            <img id="profileImage" src="/static/images/default_user.png" alt="profile image">
+
+            <button class="carousel-btn right" id="nextImage">›</button>
+
+            <div class="carousel-dots" id="carouselDots"></div>
         </div>
+
+        <h2 id="name">Loading...</h2>
+        <p id="bio"></p>
 
     </div>
 
@@ -41,18 +49,48 @@
 <script>
 
 let profiles = {{ profiles | tojson }};
-
 let index = 0;
+let currentImageIndex = 0;
 
 const nameEl = document.getElementById("name");
 const bioEl = document.getElementById("bio");
 const card = document.getElementById("profileCard");
+const imageEl = document.getElementById("profileImage");
+const dotsEl = document.getElementById("carouselDots");
+
+function renderDots(p){
+    dotsEl.innerHTML = "";
+
+    p.images.forEach((_, i) => {
+
+        const dot = document.createElement("div");
+        dot.className = "carousel-dot";
+
+        if(i === currentImageIndex){
+            dot.classList.add("active");
+        }
+
+        dot.onclick = () => {
+            currentImageIndex = i;
+            updateImage(p);
+        };
+
+        dotsEl.appendChild(dot);
+    });
+}
+
+function updateImage(p){
+    imageEl.src = p.images[currentImageIndex].image_url;
+
+    renderDots(p);
+}
 
 function loadProfile(){
-
     if(index >= profiles.length){
         nameEl.innerText = "No more profiles";
         bioEl.innerText = "";
+        imageEl.src = "/static/images/default_user.png";
+        dotsEl.innerHTML = "";
         return;
     }
 
@@ -60,10 +98,19 @@ function loadProfile(){
 
     nameEl.innerText = p.first_name;
     bioEl.innerText = p.bio;
+
+    currentImageIndex = 0;
+
+    if(!p.images || !p.images.length){
+        imageEl.src = "/static/images/default_user.png";
+        dotsEl.innerHTML = "";
+        return;
+    }
+
+    updateImage(p);
 }
 
 function showNotification(message){
-
     const container = document.getElementById("notification-container");
 
     const el = document.createElement("div");
@@ -78,7 +125,6 @@ function showNotification(message){
 }
 
 async function swipe(direction){
-
     if(index >= profiles.length) return;
 
     const current = profiles[index];
@@ -124,6 +170,31 @@ document.getElementById("messagesBtn").onclick = () => {
     window.location.href = "/conversations";
 };
 
+document.getElementById("prevImage").onclick = () => {
+    const p = profiles[index];
+    if(!p.images || !p.images.length) return;
+
+    currentImageIndex--;
+
+    if(currentImageIndex < 0){
+        currentImageIndex = p.images.length - 1;
+    }
+
+    updateImage(p);
+};
+
+document.getElementById("nextImage").onclick = () => {
+    const p = profiles[index];
+    if(!p.images || !p.images.length) return;
+
+    currentImageIndex++;
+
+    if(currentImageIndex >= p.images.length){
+        currentImageIndex = 0;
+    }
+
+    updateImage(p);
+};
 loadProfile();
 
 </script>
