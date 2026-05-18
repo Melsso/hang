@@ -159,8 +159,26 @@ def profile_get(request: Request, edit: bool = False, user=Depends(get_current_u
         {
             "user": user_resp.model_dump(mode="json"),
             "edit_mode": edit,
+            "viewer_mode": False,
             "countries": settings.COUNTRIES,
             "interests": Interests,
+        },
+    )
+
+
+@app.get("/profile/{user_id}")
+def visit_profile_get(
+    user_id: int, request: Request, user=Depends(get_current_user), db=Depends(get_db)
+):
+    target_user = db.query(UserDB).filter(UserDB.user_id == user_id).first()
+    target_user_resp = UserResponse.model_validate(target_user)
+    return render(
+        request,
+        "profile.html",
+        {
+            "user": target_user_resp.model_dump(mode="json"),
+            "edit_mode": False,
+            "viewer_mode": True,
         },
     )
 
@@ -189,6 +207,7 @@ def profile_post(
                     "errors": ["Email already in use"],
                     "user": UserResponse.model_validate(user).model_dump(mode="json"),
                     "edit_mode": True,
+                    "viewer_mode": False,
                 },
             )
 
@@ -234,6 +253,7 @@ def profile_post(
         {
             "user": user_resp.model_dump(mode="json"),
             "edit_mode": False,
+            "viewer_mode": False,
         },
     )
 
@@ -280,6 +300,7 @@ async def profile_image_upload_post(
                 "user": UserResponse.model_validate(fresh_user).model_dump(mode="json"),
                 "errors": errs,
                 "edit_mode": False,
+                "viewer_mode": False,
                 "countries": settings.COUNTRIES,
                 "interests": Interests,
             },
@@ -325,6 +346,7 @@ async def profile_image_upload_post(
                 "user": UserResponse.model_validate(fresh_user).model_dump(mode="json"),
                 "errors": ["Unexpected error happened."],
                 "edit_mode": False,
+                "viewer_mode": False,
                 "countries": settings.COUNTRIES,
                 "interests": Interests,
             },
@@ -339,6 +361,7 @@ async def profile_image_upload_post(
             "user": UserResponse.model_validate(fresh_user).model_dump(mode="json"),
             "errors": [],
             "edit_mode": False,
+            "viewer_mode": False,
             "countries": settings.COUNTRIES,
             "interests": Interests,
         },

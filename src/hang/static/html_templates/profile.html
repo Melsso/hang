@@ -33,9 +33,15 @@
             Home
         </a>
 
-        <a class="btn primary" href="/profile?edit=true">
-            Edit
-        </a>
+        {% if viewer_mode %}
+            <a class="btn secondary" href="/conversations">
+                Messages
+            </a>
+        {% else %}
+            <a class="btn primary" href="/profile?edit=true">
+                Edit
+            </a>
+        {% endif %}
 
     {% endif %}
 
@@ -64,18 +70,19 @@
             <div class="carousel-dots" id="carouselDots"></div>
 
         </div>
+        {% if not viewer_mode %}
+            <div class="image-upload-actions">
 
-        <div class="image-upload-actions">
+                <button type="button" class="btn secondary" id="uploadImageBtn">
+                    Add Photos
+                </button>
 
-            <button type="button" class="btn secondary" id="uploadImageBtn">
-                Add Photos
-            </button>
+                <form id="uploadImageForm" method="post" action="/profile/upload-image" enctype="multipart/form-data">
+                    <input type="file" id="uploadImageInput" name="files" accept="image/*" multiple hidden>
+                </form>
 
-            <form id="uploadImageForm" method="post" action="/profile/upload-image" enctype="multipart/form-data">
-                <input type="file" id="uploadImageInput" name="files" accept="image/*" multiple hidden>
-            </form>
-
-        </div>
+            </div>
+        {% endif %}
 
         {% else %}
 

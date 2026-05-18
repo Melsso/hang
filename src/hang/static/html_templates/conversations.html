@@ -63,11 +63,20 @@ function renderConversations() {
 
         div.innerHTML = `
             <img class="conversation-avatar"
-                 src="${c.other_user_image || '/static/images/default_user.png'}">
-            <span class="conversation-name">${c.other_user_name}</span>
+                title="View profile"
+                src="${c.other_user_image || '/static/images/default_user.png'}">
+            <span class="conversation-name" title="Open chat">${c.other_user_name}</span>
         `;
 
-        div.onclick = () => openConversation(c);
+        const avatar = div.querySelector(".conversation-avatar");
+        const name = div.querySelector(".conversation-name");
+
+        name.onclick = () => openConversation(c);
+
+        avatar.onclick = (e) => {
+            e.stopPropagation();
+            window.location.href = `/profile/${c.other_user_id}`;
+        };
 
         container.appendChild(div);
     });
