@@ -12,6 +12,9 @@ venv/
 /.venv
 poetry.lock
 
+resources/
+static/images/
+
 .vscode/
 .idea/
 
