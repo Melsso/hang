@@ -33,9 +33,10 @@ from hang.helpers.auth import (
 
 Base.metadata.create_all(bind=engine)
 
-
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="src/hang/static"), name="static")
+app.mount("/resources", StaticFiles(directory="src/hang/resources"), name="uploads")
+
 register_exception_handlers(app)
 COUNTRIES = [{"code": c.alpha_2, "name": c.name} for c in pycountry.countries]
 
@@ -131,7 +132,7 @@ def home_get(request: Request, user=Depends(get_current_user), db=Depends(get_db
     profiles = [UserSwipeProfile.model_validate(u) for u in users]
 
     return render(
-        request, "home.html", {"profiles": [p.model_dump() for p in profiles]}
+        request, "home.html", {"profiles": [p.model_dump(mode="json") for p in profiles]}
     )
 
 
@@ -142,7 +143,7 @@ def profile_get(request: Request, edit: bool = False, user=Depends(get_current_u
         request,
         "profile.html",
         {
-            "user": user_resp.model_dump(),
+            "user": user_resp.model_dump(mode="json"),
             "edit_mode": edit,
             "countries": COUNTRIES,
             "interests": Interests,
@@ -172,7 +173,7 @@ def profile_post(
                 "profile.html",
                 {
                     "errors": ["Email already in use"],
-                    "user": UserResponse.model_validate(user).model_dump(),
+                    "user": UserResponse.model_validate(user).model_dump(mode="json"),
                     "edit_mode": True,
                 },
             )
@@ -185,7 +186,7 @@ def profile_post(
 
     user_resp = UserResponse.model_validate(user)
     return render(
-        request, "profile.html", {"user": user_resp.model_dump(), "edit_mode": False}
+        request, "profile.html", {"user": user_resp.model_dump(mode="json"), "edit_mode": False}
     )
 
 

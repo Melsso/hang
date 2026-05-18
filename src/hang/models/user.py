@@ -81,6 +81,14 @@ class UserLogin(BaseModel):
     password: str
 
 
+class UserImageResponse(BaseModel):
+    image_id: int
+    image_url: str
+    position: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class UserResponse(BaseModel):
     user_id: int
     first_name: str
@@ -92,6 +100,8 @@ class UserResponse(BaseModel):
     gender: Gender
     interested_in: InterestedIn
     interests: List[Interests]
+
+    images: List[UserImageResponse] = Field(default_factory=list)
 
     is_active: bool
     created_at: datetime
@@ -112,6 +122,8 @@ class UserSwipeProfile(BaseModel):
     bio: str
     interests: List[Interests]
     gender: Gender
+    images: List[UserImageResponse] = Field(default_factory=list)
+
 
     @field_validator("interests", mode="before")
     def convert_interests(cls, v):

@@ -1,6 +1,6 @@
 from sqlalchemy import String, Boolean, Date, DateTime, Enum, ForeignKey
 from sqlalchemy.dialects.postgresql import ARRAY
-from sqlalchemy.orm import Mapped, mapped_column, DeclarativeBase
+from sqlalchemy.orm import Mapped, mapped_column, DeclarativeBase, relationship
 from datetime import datetime, timezone, date
 from hang.models.user import Gender, InterestedIn
 from hang.models.swipe import SwipeType
@@ -30,7 +30,13 @@ class UserDB(Base):
     interests: Mapped[list[str]] = mapped_column(
         ARRAY(String), nullable=False, default=list
     )
-
+    images = relationship(
+        "UserImageDB",
+        backref="user",
+        cascade="all, delete-orphan",
+        order_by="UserImageDB.position",
+    )
+    
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
     created_at: Mapped[datetime] = mapped_column(
@@ -41,6 +47,21 @@ class UserDB(Base):
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
+    )
+
+
+class UserImageDB(Base):
+    __tablename__ = "user_images"
+
+    image_id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.user_id"), index=True)
+
+    image_url: Mapped[str] = mapped_column(String(255), nullable=False)
+    position: Mapped[int] = mapped_column(default=0)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
     )
 
 
