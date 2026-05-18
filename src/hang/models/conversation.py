@@ -7,6 +7,7 @@ class ConversationPreview(BaseModel):
     conversation_id: int
     other_user_id: int
     other_user_name: str
+    other_user_image: str | None = None
     last_message: str | None
     updated_at: datetime
 

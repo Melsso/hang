@@ -34,6 +34,7 @@ from hang.helpers.auth import (
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
+# TODO move these paths into settings config class
 app.mount("/static", StaticFiles(directory="src/hang/static"), name="static")
 app.mount("/resources", StaticFiles(directory="src/hang/resources"), name="uploads")
 
@@ -261,12 +262,16 @@ def conversations_get(
         other_user_id = c.user2_id if c.user1_id == user.user_id else c.user1_id
 
         other_user = db.query(UserDB).filter(UserDB.user_id == other_user_id).first()
+        other_user_image = None
+        if other_user and other_user.images:
+            other_user_image = other_user.images[0].image_url
 
         result.append(
             ConversationPreview(
                 conversation_id=c.conversation_id,
                 other_user_id=other_user_id,
                 other_user_name=other_user.first_name,
+                other_user_image=other_user_image,
                 last_message=c.last_message_id and "Last message placeholder",
                 updated_at=c.updated_at,
             )
