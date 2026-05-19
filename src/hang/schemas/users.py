@@ -1,6 +1,5 @@
 from pydantic import BaseModel, EmailStr, Field, field_validator, ConfigDict
-import pycountry
-from datetime import timezone, datetime, date
+from datetime import datetime, date
 from typing import List
 from enum import Enum
 
@@ -36,31 +35,6 @@ class Interests(str, Enum):
     pets = "pets"
     nature = "nature"
     cars = "cars"
-
-
-class User(BaseModel):
-    user_id: int
-    first_name: str
-    last_name: str
-    email: EmailStr
-    country: str
-    birthdate: date
-    bio: str
-    gender: Gender
-    interested_in: InterestedIn
-    interests: List[Interests]
-
-    is_active: bool = True
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-
-    @field_validator("country")
-    def validate_country(cls, v):
-        if not pycountry.countries.get(alpha_2=v):
-            raise ValueError(f"Invalid country code: {v}")
-        return v
-
-    model_config = ConfigDict(from_attributes=True)
 
 
 class UserCreate(BaseModel):

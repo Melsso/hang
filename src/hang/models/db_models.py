@@ -2,15 +2,15 @@ from sqlalchemy import String, Boolean, Date, DateTime, Enum, ForeignKey
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Mapped, mapped_column, DeclarativeBase, relationship
 from datetime import datetime, timezone, date
-from hang.models.user import Gender, InterestedIn
-from hang.models.swipe import SwipeType
+from hang.schemas.users import Gender, InterestedIn
+from hang.schemas.swipes import SwipeType
 
 
 class Base(DeclarativeBase):
     pass
 
 
-class UserDB(Base):
+class User(Base):
     __tablename__ = "users"
 
     user_id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
@@ -31,10 +31,10 @@ class UserDB(Base):
         ARRAY(String), nullable=False, default=list
     )
     images = relationship(
-        "UserImageDB",
+        "UserImage",
         backref="user",
         cascade="all, delete-orphan",
-        order_by="UserImageDB.position",
+        order_by="UserImage.position",
     )
 
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
@@ -50,7 +50,7 @@ class UserDB(Base):
     )
 
 
-class UserImageDB(Base):
+class UserImage(Base):
     __tablename__ = "user_images"
 
     image_id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
@@ -65,7 +65,7 @@ class UserImageDB(Base):
     )
 
 
-class MessageDB(Base):
+class Message(Base):
     __tablename__ = "messages"
 
     message_id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
@@ -93,7 +93,7 @@ class MessageDB(Base):
     )
 
 
-class ConversationDB(Base):
+class Conversation(Base):
     __tablename__ = "conversations"
 
     conversation_id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
@@ -115,7 +115,7 @@ class ConversationDB(Base):
     )
 
 
-class SwipeDB(Base):
+class Swipe(Base):
     __tablename__ = "swipes"
 
     swipe_id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
