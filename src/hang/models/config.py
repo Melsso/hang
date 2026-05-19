@@ -22,8 +22,12 @@ class Settings(BaseSettings):
     MAX_IMAGE_SIZE: int
     ALLOWED_IMAGE_TYPES: Annotated[str, "csv"]
 
-    IMAGE_DIRECTORY: Path
     STATIC_DIRECTORY: Path
+
+    R2_ACCESS_KEY_ID: str
+    R2_SECRET_ACCESS_KEY: str
+    R2_BUCKET_NAME: str
+    R2_ENDPOINT: str
 
     COUNTRIES: List[Dict[str, str]] = [
         {"code": c.alpha_2, "name": c.name} for c in pycountry.countries

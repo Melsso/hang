@@ -83,7 +83,7 @@ class UserLogin(BaseModel):
 
 class UserImageResponse(BaseModel):
     image_id: int
-    image_url: str
+    image_key: str
     position: int
 
     model_config = ConfigDict(from_attributes=True)

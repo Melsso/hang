@@ -56,7 +56,7 @@ class UserImageDB(Base):
     image_id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.user_id"), index=True)
 
-    image_url: Mapped[str] = mapped_column(String(255), nullable=False)
+    image_key: Mapped[str] = mapped_column(String(255), nullable=False)
     position: Mapped[int] = mapped_column(default=0)
 
     created_at: Mapped[datetime] = mapped_column(
