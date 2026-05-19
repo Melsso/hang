@@ -7,9 +7,7 @@ from hang.models.db_models import User, Conversation
 
 from hang.helpers.template_helpers import render
 from hang.helpers.database import get_db
-from hang.helpers.auth import (
-    get_current_user,
-)  # TODO this should be in users helpers not auth
+from hang.helpers.users import get_current_user
 from hang.helpers.storage import build_image_url
 
 

@@ -1,4 +1,5 @@
 from botocore.config import Config
+from typing import List
 import boto3
 
 from hang.schemas.config import settings
@@ -23,3 +24,26 @@ def build_image_url(key: str) -> str:
         },
         ExpiresIn=3600,
     )
+
+
+def upload_s3_element(key: str, contents: bytes, ext: str) -> None:
+    s3.put_object(
+        Bucket=settings.R2_BUCKET_NAME,
+        Key=key,
+        Body=contents,
+        ContentType=f"image/{ext}",
+    )
+
+
+def upload_s3_elements(files: list[tuple[str, bytes, str]]) -> None:
+    for key, contents, ext in files:
+        upload_s3_element(
+            key=key,
+            contents=contents,
+            ext=ext,
+        )
+
+
+def delete_s3_elements(keys: List[str]) -> None:
+    for key in keys:
+        s3.delete_object(Bucket=settings.R2_BUCKET_NAME, Key=key)

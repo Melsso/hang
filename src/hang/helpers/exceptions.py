@@ -13,7 +13,7 @@ def register_exception_handlers(app):
     async def http_exception_handler(request: Request, exc: HTTPException):
 
         if exc.status_code in (401, 403):
-            return RedirectResponse(url="/login", status_code=303)
+            return RedirectResponse(url="/api/auth/login", status_code=303)
 
         return render(
             request,

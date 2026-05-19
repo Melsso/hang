@@ -1,14 +1,13 @@
-from fastapi import Depends, Request, HTTPException
 from passlib.context import CryptContext
-from jose import jwt, JWTError
+from jose import jwt
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta, timezone
 
-from typing import Annotated
+from typing import Optional
 
 from hang.schemas.config import settings
+from hang.schemas.users import UserCreate
 from hang.models.db_models import User
-from hang.helpers.database import get_db
 
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -33,28 +32,37 @@ def create_access_token(data: dict):
     return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 
-def get_current_user(request: Request, db: Annotated[Session, Depends(get_db)]) -> User:
-    token = request.cookies.get("access_token")
+def authenticate_user(db: Session, email: str, password: str) -> Optional[User]:
+    user = db.query(User).filter(User.email == email).first()
 
-    if not token:
-        raise HTTPException(status_code=401, detail="Not authenticated")
+    if not user or not verify_password(password, user.password):
+        return None
 
+    return user
+
+
+def register_user(db: Session, user_data: UserCreate) -> Optional[User]:
+    new_user = User(
+        first_name=user_data.first_name,
+        last_name=user_data.last_name,
+        email=user_data.email.lower(),
+        password=hash_password(user_data.password),
+        birthdate=user_data.birthdate,
+        bio=user_data.bio,
+        country=user_data.country,
+        gender=user_data.gender,
+        interested_in=user_data.interested_in,
+        interests=user_data.interests,
+        is_active=True,
+    )
+
+    # TODO look into exception handling here
     try:
-        payload = jwt.decode(
-            token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
-        )
+        db.add(new_user)
+        db.commit()
+        db.refresh(new_user)
+    except Exception:
+        db.rollback()
+        return None
 
-        user_id = payload.get("sub")
-
-        if not user_id:
-            raise HTTPException(status_code=401, detail="Invalid token")
-
-        user = db.query(User).filter(User.user_id == int(user_id)).first()
-
-        if not user:
-            raise HTTPException(status_code=404, detail="User not found")
-
-        return user
-
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid or expired token")
+    return new_user

@@ -8,7 +8,7 @@ from hang.schemas.config import settings
 from hang.models.db_models import User
 
 from hang.helpers.template_helpers import render, form_to_model
-from hang.helpers.auth import verify_password, create_access_token, hash_password
+from hang.helpers.auth import register_user, create_access_token, authenticate_user
 from hang.helpers.database import get_db
 
 
@@ -27,11 +27,9 @@ def login_post(
     db: Annotated[Session, Depends(get_db)],
     userData: Annotated[UserLogin, Depends(form_to_model(UserLogin))],
 ):
-    email = userData.email.lower()
+    user = authenticate_user(db, userData.email.lower(), userData.password)
 
-    user = db.query(User).filter(User.email == email).first()
-
-    if not user or not verify_password(userData.password, user.password):
+    if not user:
         return render(
             request=request,
             template="login.html",
@@ -65,6 +63,7 @@ def logout_post(request: Request):
 
 @auth_router.get("/register")
 def register_get(request: Request):
+    # TODO can potentially check token, if active redir to home page isntead
     return render(
         request=request,
         template="register.html",
@@ -87,24 +86,11 @@ def register_post(
             context={"errors": ["Email already in use"]},
         )
 
-    hashed_password = hash_password(userData.password)
-
-    new_user = User(
-        first_name=userData.first_name,
-        last_name=userData.last_name,
-        email=email,
-        password=hashed_password,
-        birthdate=userData.birthdate,
-        bio=userData.bio,
-        country=userData.country,
-        gender=userData.gender,
-        interested_in=userData.interested_in,
-        interests=userData.interests,
-        is_active=True,
-    )
-
-    db.add(new_user)
-    db.commit()
-    db.refresh(new_user)
-
+    usr = register_user(db, userData)
+    if not usr:
+        return render(
+            request=request,
+            template="register.html",
+            context={"errors": ["Something unexpected happened."]},
+        )
     return RedirectResponse(url="/api/auth/login", status_code=303)

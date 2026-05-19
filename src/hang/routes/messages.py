@@ -6,9 +6,7 @@ from hang.schemas.messages import MessageListResponse, MessagePreview
 from hang.models.db_models import User, Conversation, Message
 
 from hang.helpers.database import get_db
-from hang.helpers.auth import (
-    get_current_user,
-)  # TODO this should be in users helpers not auth
+from hang.helpers.users import get_current_user
 
 
 message_router = APIRouter(prefix="/messages", tags=["messages"])
