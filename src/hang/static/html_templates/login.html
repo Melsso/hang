@@ -21,7 +21,7 @@
             </div>
         {% endif %}
 
-        <form method="post" action="/login">
+        <form method="post" action="/api/auth/login">
             <div class="form-fields">
                 <div class="field">
                     <input
@@ -49,7 +49,7 @@
         </form>
 
         <p class="switch-link">
-            No account? <a href="/register"> Register</a>
+            No account? <a href="/api/auth/register"> Register</a>
         </p>
 
         <a class="back-link" href="/">← Back to home</a>

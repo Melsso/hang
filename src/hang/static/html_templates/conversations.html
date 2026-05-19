@@ -11,10 +11,10 @@
 <div class="app-container">
 
     <div class="top-actions">
-        <button onclick="location.href='/profile'">Profile</button>
-        <button onclick="location.href='/home'">Home</button>
+        <button onclick="location.href='/api/users/profile'">Profile</button>
+        <button onclick="location.href='/api/swipes/home'">Home</button>
         
-        <form method="post" action="/logout">
+        <form method="post" action="/api/auth/logout">
             <button type="submit">Log Out</button>
         </form>
     </div>
@@ -75,7 +75,7 @@ function renderConversations() {
 
         avatar.onclick = (e) => {
             e.stopPropagation();
-            window.location.href = `/profile/${c.other_user_id}`;
+            window.location.href = `/api/users/profile/${c.other_user_id}`;
         };
 
         container.appendChild(div);
@@ -87,7 +87,7 @@ async function openConversation(c) {
 
     document.getElementById("chatHeader").innerText = c.other_user_name;
 
-    const res = await fetch(`/conversations/${c.conversation_id}`);
+    const res = await fetch(`/api/messages/conversation/${c.conversation_id}`);
     const data = await res.json();
 
     currentUserId = data.current_user_id;
