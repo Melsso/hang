@@ -32,6 +32,7 @@ from hang.schemas.schemas import (
     UserImageDB,
 )
 from hang.helpers.database import engine, get_db
+from hang.helpers.storage import s3, build_image_url
 from hang.helpers.exceptions import register_exception_handlers
 from hang.helpers.template_helpers import render, form_to_model
 from hang.helpers.auth import (
@@ -46,7 +47,6 @@ Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 app.mount("/static", StaticFiles(directory=settings.STATIC_DIRECTORY), name="static")
-app.mount("/resources", StaticFiles(directory=settings.IMAGE_DIRECTORY), name="uploads")
 
 register_exception_handlers(app)
 
@@ -141,23 +141,29 @@ def home_get(request: Request, user=Depends(get_current_user), db=Depends(get_db
         .filter(UserDB.is_active)
         .all()
     )
-    profiles = [UserSwipeProfile.model_validate(u) for u in users]
+    profiles = []
 
-    return render(
-        request,
-        "home.html",
-        {"profiles": [p.model_dump(mode="json") for p in profiles]},
-    )
+    for u in users:
+        profile = UserSwipeProfile.model_validate(u).model_dump(mode="json")
+
+        for img in profile["images"]:
+            img["image_url"] = build_image_url(img["image_key"])
+
+        profiles.append(profile)
+
+    return render(request, "home.html", {"profiles": profiles})
 
 
 @app.get("/profile")
 def profile_get(request: Request, edit: bool = False, user=Depends(get_current_user)):
-    user_resp = UserResponse.model_validate(user)
+    user_resp = UserResponse.model_validate(user).model_dump(mode="json")
+    for img in user_resp["images"]:
+        img["image_url"] = build_image_url(img["image_key"])
     return render(
         request,
         "profile.html",
         {
-            "user": user_resp.model_dump(mode="json"),
+            "user": user_resp,
             "edit_mode": edit,
             "viewer_mode": False,
             "countries": settings.COUNTRIES,
@@ -171,12 +177,14 @@ def visit_profile_get(
     user_id: int, request: Request, user=Depends(get_current_user), db=Depends(get_db)
 ):
     target_user = db.query(UserDB).filter(UserDB.user_id == user_id).first()
-    target_user_resp = UserResponse.model_validate(target_user)
+    target_user_resp = UserResponse.model_validate(target_user).model_dump(mode="json")
+    for img in target_user_resp["images"]:
+        img["image_url"] = build_image_url(img["image_key"])
     return render(
         request,
         "profile.html",
         {
-            "user": target_user_resp.model_dump(mode="json"),
+            "user": target_user_resp,
             "edit_mode": False,
             "viewer_mode": True,
         },
@@ -200,12 +208,15 @@ def profile_post(
             .first()
         )
         if existing_user:
+            user_resp = UserResponse.model_validate(user).model_dump(mode="json")
+            for img in user_resp["images"]:
+                img["image_url"] = build_image_url(img["image_key"])
             return render(
                 request,
                 "profile.html",
                 {
                     "errors": ["Email already in use"],
-                    "user": UserResponse.model_validate(user).model_dump(mode="json"),
+                    "user": user_resp,
                     "edit_mode": True,
                     "viewer_mode": False,
                 },
@@ -221,17 +232,18 @@ def profile_post(
     deleted_img_ids = set(update_data.get("deleted_images") or [])
     images_to_delete = [img for img in user.images if img.image_id in deleted_img_ids]
 
+    keys_to_delete = []
     for img in images_to_delete:
-        filename = img.image_url.split("/")[-1]
-        file_path = settings.IMAGE_DIRECTORY / f"users/{user.user_id}" / filename
-        if file_path.exists():
-            file_path.unlink()
-
         db.delete(img)
+        keys_to_delete.append(img.image_key)
 
     image_updates = update_data.get("images") or []
     if image_updates:
-        image_map = {img.image_id: img for img in user.images}
+        image_map = {
+            img.image_id: img
+            for img in user.images
+            if img.image_id not in deleted_img_ids
+        }
 
         for img_update in image_updates:
             img_id = img_update.get("image_id")
@@ -245,13 +257,17 @@ def profile_post(
 
     db.commit()
     db.refresh(user)
+    for key in keys_to_delete:
+        s3.delete_object(Bucket=settings.R2_BUCKET_NAME, Key=key)
 
-    user_resp = UserResponse.model_validate(user)
+    user_resp = UserResponse.model_validate(user).model_dump(mode="json")
+    for img in user_resp["images"]:
+        img["image_url"] = build_image_url(img["image_key"])
     return render(
         request,
         "profile.html",
         {
-            "user": user_resp.model_dump(mode="json"),
+            "user": user_resp,
             "edit_mode": False,
             "viewer_mode": False,
         },
@@ -292,12 +308,14 @@ async def profile_image_upload_post(
 
     if errs:
         fresh_user = db.query(UserDB).filter(UserDB.user_id == user.user_id).first()
-
+        user_resp = UserResponse.model_validate(fresh_user).model_dump(mode="json")
+        for img in user_resp["images"]:
+            img["image_url"] = build_image_url(img["image_key"])
         return render(
             request,
             "profile.html",
             {
-                "user": UserResponse.model_validate(fresh_user).model_dump(mode="json"),
+                "user": user_resp,
                 "errors": errs,
                 "edit_mode": False,
                 "viewer_mode": False,
@@ -306,44 +324,46 @@ async def profile_image_upload_post(
             },
         )
 
-    user_image_dir = settings.IMAGE_DIRECTORY / "users" / str(user.user_id)
-    user_image_dir.mkdir(parents=True, exist_ok=True)
-
     next_position = max((img.position for img in user.images), default=-1) + 1
-
+    uploaded_keys = []
     try:
         for contents, ext in file_payloads:
             filename = f"{uuid4().hex}.{ext}"
-            file_path = user_image_dir / filename
+            key = f"users/{user.user_id}/images/{filename}"
 
-            with open(file_path, "wb") as f:
-                f.write(contents)
-
-            image_url = f"/resources/users/{user.user_id}/{filename}"
-
-            image_db = UserImageDB(
-                user_id=user.user_id,
-                image_url=image_url,
-                position=next_position,
+            s3.put_object(
+                Bucket=settings.R2_BUCKET_NAME,
+                Key=key,
+                Body=contents,
+                ContentType=f"image/{ext}",
             )
+            uploaded_keys.append(key)
 
-            db.add(image_db)
-            db.flush()
-
+            db.add(
+                UserImageDB(
+                    user_id=user.user_id,
+                    image_key=key,
+                    position=next_position,
+                )
+            )
             next_position += 1
 
         db.commit()
 
     except Exception:
         db.rollback()
+        for key in uploaded_keys:
+            s3.delete_object(Bucket=settings.R2_BUCKET_NAME, Key=key)
 
         fresh_user = db.query(UserDB).filter(UserDB.user_id == user.user_id).first()
-
+        user_resp = UserResponse.model_validate(fresh_user).model_dump(mode="json")
+        for img in user_resp["images"]:
+            img["image_url"] = build_image_url(img["image_key"])
         return render(
             request,
             "profile.html",
             {
-                "user": UserResponse.model_validate(fresh_user).model_dump(mode="json"),
+                "user": user_resp,
                 "errors": ["Unexpected error happened."],
                 "edit_mode": False,
                 "viewer_mode": False,
@@ -353,12 +373,15 @@ async def profile_image_upload_post(
         )
 
     fresh_user = db.query(UserDB).filter(UserDB.user_id == user.user_id).first()
+    user_resp = UserResponse.model_validate(fresh_user).model_dump(mode="json")
+    for img in user_resp["images"]:
+        img["image_url"] = build_image_url(img["image_key"])
 
     return render(
         request,
         "profile.html",
         {
-            "user": UserResponse.model_validate(fresh_user).model_dump(mode="json"),
+            "user": user_resp,
             "errors": [],
             "edit_mode": False,
             "viewer_mode": False,
@@ -437,7 +460,7 @@ def conversations_get(
         other_user = db.query(UserDB).filter(UserDB.user_id == other_user_id).first()
         other_user_image = None
         if other_user and other_user.images:
-            other_user_image = other_user.images[0].image_url
+            other_user_image = build_image_url(other_user.images[0].image_key)
 
         result.append(
             ConversationPreview(
