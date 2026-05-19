@@ -3,12 +3,16 @@ from fastapi import Request
 from pathlib import Path
 import json
 
+from typing import Type, Callable, Awaitable, Any
+
+
+# TODO move this to config get abs path dont resolve like this
 BASE_DIR = Path(__file__).resolve().parent.parent
 templates = Jinja2Templates(directory=str(BASE_DIR / "static/html_templates"))
 
 
-def form_to_model(model: type):
-    async def dependency(request: Request):
+def form_to_model(model: Type[Any]) -> Callable[[Request], Awaitable[Any]]:
+    async def dependency(request: Request) -> Any:
         form = await request.form()
         data = dict(form)
 

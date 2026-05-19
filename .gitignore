@@ -12,8 +12,11 @@ venv/
 /.venv
 poetry.lock
 
+Dockerfile*
+inject_data.py
+
 resources/
-static/images/
+static/images
 
 .vscode/
 .idea/

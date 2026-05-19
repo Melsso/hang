@@ -1,8 +1,9 @@
 from botocore.config import Config
 import boto3
 
-from hang.models.config import settings
+from hang.schemas.config import settings
 
+# TODO turn this to a class, write methods to perform tasks rather than repetitive code
 s3 = boto3.client(
     "s3",
     endpoint_url=settings.R2_ENDPOINT,

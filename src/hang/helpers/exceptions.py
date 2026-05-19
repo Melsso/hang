@@ -6,6 +6,7 @@ from fastapi.responses import RedirectResponse
 from hang.helpers.template_helpers import render
 
 
+# TODO rework this, super inconsistent and random behavior, need to define proper exceptions
 def register_exception_handlers(app):
 
     @app.exception_handler(HTTPException)
@@ -51,6 +52,6 @@ def register_exception_handlers(app):
         return render(
             request,
             "login.html",
-            {"errors": "Something unexpected happened."},
+            {"errors": ["Something unexpected happened."]},
             status_code=500,
         )

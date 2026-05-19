@@ -1,6 +1,9 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from hang.models.config import settings
+
+from hang.schemas.config import settings
+from hang.models.db_models import Base
+
 
 DATABASE_URL = (
     f"postgresql+psycopg://{settings.DB_USER}:{settings.DB_PASSWORD}"
@@ -8,6 +11,7 @@ DATABASE_URL = (
 )
 
 engine = create_engine(DATABASE_URL, echo=True)
+Base.metadata.create_all(bind=engine)
 
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 

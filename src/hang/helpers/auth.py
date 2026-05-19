@@ -4,9 +4,10 @@ from jose import jwt, JWTError
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta, timezone
 
+from typing import Annotated
 
-from hang.models.config import settings
-from hang.schemas.schemas import UserDB
+from hang.schemas.config import settings
+from hang.models.db_models import User
 from hang.helpers.database import get_db
 
 
@@ -32,7 +33,7 @@ def create_access_token(data: dict):
     return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 
-def get_current_user(request: Request, db: Session = Depends(get_db)):
+def get_current_user(request: Request, db: Annotated[Session, Depends(get_db)]) -> User:
     token = request.cookies.get("access_token")
 
     if not token:
@@ -48,7 +49,7 @@ def get_current_user(request: Request, db: Session = Depends(get_db)):
         if not user_id:
             raise HTTPException(status_code=401, detail="Invalid token")
 
-        user = db.query(UserDB).filter(UserDB.user_id == int(user_id)).first()
+        user = db.query(User).filter(User.user_id == int(user_id)).first()
 
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
