@@ -3,6 +3,7 @@ from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 from typing import List
+from collections import defaultdict
 from uuid import uuid4
 import imghdr
 
@@ -134,24 +135,74 @@ def register_post(
 
 
 @app.get("/home")
-def home_get(request: Request, user=Depends(get_current_user), db=Depends(get_db)):
-    users = (
+def home_get(
+    request: Request,
+    user=Depends(get_current_user),
+    db=Depends(get_db),
+):
+    user_id = user.user_id
+
+    swiped_subq = (
+        db.query(SwipeDB.to_user_id).filter(SwipeDB.from_user_id == user_id).subquery()
+    )
+    candidates = (
         db.query(UserDB)
-        .filter(UserDB.user_id != user.user_id)
-        .filter(UserDB.is_active)
+        .filter(UserDB.user_id != user_id)
+        .filter(UserDB.is_active.is_(True))
+        .filter(~UserDB.user_id.in_(swiped_subq))
         .all()
     )
+
+    if not candidates:
+        return render(request, "home.html", {"profiles": []})
+
+    candidate_ids = [u.user_id for u in candidates]
+    images = (
+        db.query(UserImageDB)
+        .filter(UserImageDB.user_id.in_(candidate_ids))
+        .order_by(UserImageDB.position)
+        .all()
+    )
+
+    image_map = defaultdict(list)
+    for img in images:
+        image_map[img.user_id].append(img)
+
+    def score(u: UserDB):
+        score = 0
+
+        if u.country == user.country:
+            score += 3
+
+        score += len(set(u.interests) & set(user.interests))
+
+        if user.interested_in.value == "everyone":
+            score += 2
+        elif user.interested_in.value == u.gender.value:
+            score += 4
+
+        return score
+
     profiles = []
-
-    for u in users:
+    for u in candidates:
         profile = UserSwipeProfile.model_validate(u).model_dump(mode="json")
-
-        for img in profile["images"]:
-            img["image_url"] = build_image_url(img["image_key"])
-
+        profile["images"] = [
+            {
+                "image_id": img.image_id,
+                "image_url": build_image_url(img.image_key),
+                "position": img.position,
+            }
+            for img in image_map.get(u.user_id, [])
+        ]
+        profile["score"] = score(u)
         profiles.append(profile)
 
-    return render(request, "home.html", {"profiles": profiles})
+    profiles.sort(key=lambda x: x["score"], reverse=True)
+    return render(
+        request,
+        "home.html",
+        {"profiles": profiles},
+    )
 
 
 @app.get("/profile")

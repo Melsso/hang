@@ -19,6 +19,7 @@
     padding:20px;
     box-sizing:border-box;
     overflow:hidden;
+    transition:transform 0.25s ease, opacity 0.25s ease;
 }
 
 .home-carousel{
@@ -94,17 +95,17 @@
     font-size:18px;
 }
 
-.swipe-left{
+.swipe-pass{
     transform:translateX(-300px) rotate(-20deg);
     opacity:0;
 }
 
-.swipe-right{
+.swipe-like{
     transform:translateX(300px) rotate(20deg);
     opacity:0;
 }
 
-.swipe-super{
+.swipe-super_like{
     transform:translateY(-300px) scale(0.8);
     opacity:0;
 }
