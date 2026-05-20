@@ -104,6 +104,11 @@ function loadProfile(){
     if(!p.images || !p.images.length){
         imageEl.src = "/static/images/default_user.png";
         dotsEl.innerHTML = "";
+        
+        document.getElementById("passBtn").disabled = true;
+        document.getElementById("likeBtn").disabled = true;
+        document.getElementById("super_likeBtn").disabled = true;
+
         return;
     }
 
@@ -151,7 +156,7 @@ async function swipe(direction){
         index++;
         loadProfile();
 
-        if (data.conversation) {
+        if (data.conversation_id) {
             showNotification(`It's a match with ${current.first_name}!`);
         }
 

@@ -1,6 +1,5 @@
 from pydantic import BaseModel
 from enum import Enum
-from hang.schemas.conversations import ConversationResponse
 
 
 class SwipeType(str, Enum):
@@ -12,9 +11,3 @@ class SwipeType(str, Enum):
 class SwipeCreate(BaseModel):
     to_user_id: int
     swipe_type: SwipeType
-
-
-# TODO this has no point in existing?
-class SwipeResponse(BaseModel):
-    success: bool
-    conversation: ConversationResponse | None = None
