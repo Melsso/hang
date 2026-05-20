@@ -1,20 +1,14 @@
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict
 from datetime import datetime
-from typing import List
 
 
 class ConversationPreview(BaseModel):
     conversation_id: int
     other_user_id: int
     other_user_name: str
-    other_user_image: str | None = None
+    other_user_img_url: str | None = None
     last_message: str | None
     updated_at: datetime
-
-
-class ConversationListResponse(BaseModel):
-    success: bool
-    conversations: List[ConversationPreview] = Field(default_factory=list)
 
 
 class ConversationResponse(BaseModel):

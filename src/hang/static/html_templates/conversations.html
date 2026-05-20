@@ -47,16 +47,13 @@
 
 <script>
 
-let response = {{ conversations | tojson }};
-let conversations = response.conversations;
-
+let conversations = {{ conversations | tojson }};
 let currentConversationId = null;
 let currentUserId = null;
 
 function renderConversations() {
     const container = document.getElementById("conversationList");
     container.innerHTML = "";
-
     conversations.forEach(c => {
         const div = document.createElement("div");
         div.className = "conversation-item";
@@ -64,7 +61,7 @@ function renderConversations() {
         div.innerHTML = `
             <img class="conversation-avatar"
                 title="View profile"
-                src="${c.other_user_image || '/static/images/default_user.png'}">
+                src="${c.other_user_img_url || '/static/images/default_user.png'}">
             <span class="conversation-name" title="Open chat">${c.other_user_name}</span>
         `;
 
