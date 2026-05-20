@@ -37,10 +37,6 @@ def update_last_message(conversation: Conversation, message: Message) -> None:
     conversation.last_message_id = message.message_id
 
 
-def mark_message_read(message: Message) -> None:
-    message.is_read = True
-
-
 def mark_conversation_messages_read(
     db: Session, conversation_id: int, user_id: int
 ) -> None:
@@ -51,6 +47,7 @@ def mark_conversation_messages_read(
         .filter(Message.is_read.is_(False))
         .update({"is_read": True})
     )
+    db.commit()
 
 
 def send_message_flow(

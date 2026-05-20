@@ -12,7 +12,7 @@ from hang.schemas.conversations import MessagePreview
 from hang.schemas.config import settings
 from hang.models.db_models import User
 
-from hang.helpers.messages import send_message_flow
+from hang.helpers.messages import send_message_flow, mark_conversation_messages_read
 from hang.helpers.database import get_db
 from hang.helpers.conversations import get_user_conversation
 
@@ -113,6 +113,21 @@ async def handle_ws_message(
 
     if data.get("type") == "pong":
         manager.mark_pong(websocket)
+        return
+
+    if data.get("type") == "read_ack":
+        conversation_id = data.get("conversation_id")
+
+        if not conversation_id:
+            return
+
+        mark_conversation_messages_read(
+            db=db,
+            conversation_id=conversation_id,
+            user_id=user_id,
+        )
+
+        db.commit()
         return
 
     conversation_id = data.get("conversation_id")

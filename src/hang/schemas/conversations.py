@@ -9,6 +9,8 @@ class ConversationPreview(BaseModel):
     other_user_name: str
     other_user_img_url: str | None = None
     last_message: str | None
+    last_message_at: datetime | None = None
+    unread_count: int = 0
     updated_at: datetime
 
 

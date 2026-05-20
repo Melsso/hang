@@ -8,7 +8,10 @@ from hang.models.db_models import User
 from hang.helpers.template_helpers import render
 from hang.helpers.database import get_db
 from hang.helpers.users import get_current_user
-from hang.helpers.messages import get_conversation_messages
+from hang.helpers.messages import (
+    get_conversation_messages,
+    mark_conversation_messages_read,
+)
 from hang.helpers.conversations import (
     fetch_conversations_list,
     get_user_conversation,
@@ -46,6 +49,9 @@ def messages_by_conv_id_get(
         return None
 
     msg_lst = get_conversation_messages(db=db, conversation_id=conversation_id)
+    mark_conversation_messages_read(
+        db=db, conversation_id=conversation_id, user_id=user.user_id
+    )
 
     return MessageListResponse(
         conversation_id=conversation_id, current_user_id=user.user_id, messages=msg_lst

@@ -52,6 +52,8 @@ let currentUserId = null;
 
 let socket = null;
 
+const conversationElements = {};
+
 function initSocket() {
     socket = new WebSocket("/api/ws/conversations");
 
@@ -66,14 +68,24 @@ function initSocket() {
         if (data.type === "message") {
             const msg = data.message;
 
-            if (msg.conversation_id === currentConversationId) {
+            const isActiveChat = msg.conversation_id === currentConversationId;
+
+            if (isActiveChat) {
                 renderMessage(msg);
                 scrollToBottom();
-            } else {
-                console.log("currently does nothing");
-                // here can add notifications for other conversations
+
+                socket.send(JSON.stringify({
+                    type: "read",
+                    conversation_id: currentConversationId
+                }));
             }
+
+            updateConversationPreview(msg, isActiveChat);
         }
+    };
+
+    socket.onclose = () => {
+        console.log("WS disconnected");
     };
 }
 
@@ -104,13 +116,37 @@ function renderMessage(m) {
     }
 
     div.innerText = m.content;
-
     container.appendChild(div);
 }
 
 function scrollToBottom() {
     const container = document.getElementById("chatMessages");
     container.scrollTop = container.scrollHeight;
+}
+
+function updateConversationPreview(msg, isActiveChat) {
+    const el = conversationElements[msg.conversation_id];
+    if (!el) return;
+
+    const preview = el.querySelector(".conversation-preview");
+    if (preview) {
+        preview.innerText = msg.content;
+    }
+
+    if (!isActiveChat) {
+        const badge = el.querySelector(".unread-count");
+
+        let count = parseInt(badge?.innerText || "0");
+        count += 1;
+
+        if (badge) {
+            badge.innerText = count;
+            badge.style.display = "inline-block";
+        }
+    }
+
+    const list = document.getElementById("conversationList");
+    list.prepend(el);
 }
 
 function renderConversations() {
@@ -123,20 +159,23 @@ function renderConversations() {
 
         div.innerHTML = `
             <img class="conversation-avatar"
-                title="View profile"
                 src="${c.other_user_img_url || '/static/images/default_user.png'}">
-            <span class="conversation-name" title="Open chat">${c.other_user_name}</span>
+
+            <div class="conversation-meta">
+                <span class="conversation-name">${c.other_user_name}</span>
+                <span class="conversation-preview">
+                    ${c.last_message || ""}
+                </span>
+            </div>
+
+            <span class="unread-count" style="display:${c.unread_count > 0 ? "inline-block" : "none"}">
+                ${c.unread_count || 0}
+            </span>
         `;
 
-        const avatar = div.querySelector(".conversation-avatar");
-        const name = div.querySelector(".conversation-name");
+        conversationElements[c.conversation_id] = div;
 
-        name.onclick = () => openConversation(c);
-
-        avatar.onclick = (e) => {
-            e.stopPropagation();
-            window.location.href = `/api/users/profile/${c.other_user_id}`;
-        };
+        div.onclick = () => openConversation(c);
 
         container.appendChild(div);
     });
@@ -155,19 +194,24 @@ async function openConversation(c) {
     const container = document.getElementById("chatMessages");
     container.innerHTML = "";
 
-    if (data.messages) {
-        data.messages.forEach(renderMessage);
-    }
+    data.messages?.forEach(renderMessage);
 
     scrollToBottom();
+
+    const el = conversationElements[c.conversation_id];
+    if (el) {
+        const badge = el.querySelector(".unread-count");
+        if (badge) {
+            badge.innerText = "0";
+            badge.style.display = "none";
+        }
+    }
 }
 
 document.getElementById("sendBtn").onclick = sendMessage;
 
 document.getElementById("messageInput").addEventListener("keydown", (e) => {
-    if (e.key === "Enter") {
-        sendMessage();
-    }
+    if (e.key === "Enter") sendMessage();
 });
 
 window.addEventListener("beforeunload", () => {
