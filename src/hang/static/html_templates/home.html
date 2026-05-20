@@ -16,7 +16,7 @@
         <button id="profileBtn">Profile</button>
         <button id="messagesBtn">Messages</button>
 
-        <form method="post" action="/logout">
+        <form method="post" action="/api/auth/logout">
             <button type="submit">Log Out</button>
         </form>
     </div>
@@ -104,6 +104,11 @@ function loadProfile(){
     if(!p.images || !p.images.length){
         imageEl.src = "/static/images/default_user.png";
         dotsEl.innerHTML = "";
+        
+        document.getElementById("passBtn").disabled = true;
+        document.getElementById("likeBtn").disabled = true;
+        document.getElementById("super_likeBtn").disabled = true;
+
         return;
     }
 
@@ -129,7 +134,7 @@ async function swipe(direction){
 
     const current = profiles[index];
 
-    const res = await fetch("/swipe", {
+    const res = await fetch("/api/swipes/swipe-action", {
         method: "POST",
         headers: {
             "Content-Type": "application/json"
@@ -151,7 +156,7 @@ async function swipe(direction){
         index++;
         loadProfile();
 
-        if (data.conversation) {
+        if (data.conversation_id) {
             showNotification(`It's a match with ${current.first_name}!`);
         }
 
@@ -163,11 +168,11 @@ document.getElementById("likeBtn").onclick = () => swipe("like");
 document.getElementById("super_likeBtn").onclick = () => swipe("super_like");
 
 document.getElementById("profileBtn").onclick = () => {
-    window.location.href = "/profile";
+    window.location.href = "/api/users/profile";
 };
 
 document.getElementById("messagesBtn").onclick = () => {
-    window.location.href = "/conversations";
+    window.location.href = "/api/conversations";
 };
 
 document.getElementById("prevImage").onclick = () => {

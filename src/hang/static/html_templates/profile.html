@@ -23,29 +23,29 @@
             Save
         </button>
 
-        <a class="btn secondary" href="/profile">
+        <a class="btn secondary" href="/api/users/profile">
             Cancel
         </a>
 
     {% else %}
 
-        <a class="btn secondary" href="/home">
+        <a class="btn secondary" href="/api/swipes/home">
             Home
         </a>
 
         {% if viewer_mode %}
-            <a class="btn secondary" href="/conversations">
+            <a class="btn secondary" href="/api/conversations">
                 Messages
             </a>
         {% else %}
-            <a class="btn primary" href="/profile?edit=true">
+            <a class="btn primary" href="/api/users/profile?edit=true">
                 Edit
             </a>
         {% endif %}
 
     {% endif %}
 
-    <form method="post" action="/logout">
+    <form method="post" action="/api/auth/logout">
         <button type="submit">Log Out</button>
     </form>
 </div>
@@ -77,7 +77,7 @@
                     Add Photos
                 </button>
 
-                <form id="uploadImageForm" method="post" action="/profile/upload-image" enctype="multipart/form-data">
+                <form id="uploadImageForm" method="post" action="/api/users/profile/upload-image" enctype="multipart/form-data">
                     <input type="file" id="uploadImageInput" name="files" accept="image/*" multiple hidden>
                 </form>
 
@@ -116,7 +116,7 @@
         </div>
 
         {% if edit_mode %}
-            <form id="profileForm" method="post" action="/profile">
+            <form id="profileForm" method="post" action="/api/users/profile">
         {% endif %}
         <div class="profile-section">
             <div class="profile-label">Email</div>

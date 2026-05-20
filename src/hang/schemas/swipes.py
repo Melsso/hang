@@ -1,6 +1,5 @@
 from pydantic import BaseModel
 from enum import Enum
-from hang.models.conversation import ConversationResponse
 
 
 class SwipeType(str, Enum):
@@ -12,8 +11,3 @@ class SwipeType(str, Enum):
 class SwipeCreate(BaseModel):
     to_user_id: int
     swipe_type: SwipeType
-
-
-class SwipeResponse(BaseModel):
-    success: bool
-    conversation: ConversationResponse | None = None
