@@ -10,7 +10,6 @@ from hang.routes.auth import auth_router
 from hang.routes.users import user_router
 from hang.routes.swipes import swipe_router
 from hang.routes.conversations import conversation_router
-from hang.routes.messages import message_router
 
 
 app = FastAPI(title="Hang", description="Dating App", version="1.0.0")
@@ -19,7 +18,6 @@ app.include_router(auth_router, prefix="/api")
 app.include_router(user_router, prefix="/api")
 app.include_router(swipe_router, prefix="/api")
 app.include_router(conversation_router, prefix="/api")
-app.include_router(message_router, prefix="/api")
 
 app.mount("/static", StaticFiles(directory=settings.STATIC_DIRECTORY), name="static")
 

@@ -84,7 +84,7 @@ async function openConversation(c) {
 
     document.getElementById("chatHeader").innerText = c.other_user_name;
 
-    const res = await fetch(`/api/messages/conversation/${c.conversation_id}`);
+    const res = await fetch(`/api/conversations/${c.conversation_id}/messages`);
     const data = await res.json();
 
     currentUserId = data.current_user_id;

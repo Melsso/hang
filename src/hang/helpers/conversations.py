@@ -1,8 +1,8 @@
 from sqlalchemy.orm import Session
 from typing import Optional
 
-from hang.schemas.conversations import ConversationPreview
-from hang.models.db_models import User, Conversation
+from hang.schemas.conversations import ConversationPreview, MessagePreview
+from hang.models.db_models import User, Conversation, Message
 
 from hang.helpers.storage import build_image_url
 
@@ -40,3 +40,35 @@ def fetch_conversations_list(
         )
 
     return result
+
+
+# TODO raise exception rather than returning none in future
+def get_user_conversation(
+    db: Session, user_id: int, conversation_id: int
+) -> Optional[Conversation]:
+    conversation = (
+        db.query(Conversation)
+        .filter(Conversation.conversation_id == conversation_id)
+        .first()
+    )
+
+    if not conversation:
+        return None
+
+    if user_id not in [conversation.user1_id, conversation.user2_id]:
+        return None
+
+    return conversation
+
+
+def get_conversation_messages(
+    db: Session, conversation_id: int
+) -> list[MessagePreview]:
+    messages = (
+        db.query(Message)
+        .filter(Message.conversation_id == conversation_id)
+        .order_by(Message.created_at.asc())
+        .all()
+    )
+
+    return [MessagePreview.model_validate(m) for m in messages]

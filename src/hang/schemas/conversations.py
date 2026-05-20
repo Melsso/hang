@@ -1,5 +1,6 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from datetime import datetime
+from typing import List
 
 
 class ConversationPreview(BaseModel):
@@ -22,3 +23,18 @@ class ConversationResponse(BaseModel):
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class MessagePreview(BaseModel):
+    message_id: int
+    sender_id: int
+    content: str
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class MessageListResponse(BaseModel):
+    conversation_id: int
+    current_user_id: int
+    messages: List[MessagePreview] = Field(default_factory=list)
