@@ -8,10 +8,10 @@ from hang.models.db_models import User
 from hang.helpers.template_helpers import render
 from hang.helpers.database import get_db
 from hang.helpers.users import get_current_user
+from hang.helpers.messages import get_conversation_messages
 from hang.helpers.conversations import (
     fetch_conversations_list,
     get_user_conversation,
-    get_conversation_messages,
 )
 
 conversation_router = APIRouter(prefix="/conversations", tags=["conversations"])

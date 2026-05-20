@@ -46,14 +46,89 @@
 </div>
 
 <script>
-
 let conversations = {{ conversations | tojson }};
 let currentConversationId = null;
 let currentUserId = null;
 
+let socket = null;
+
+/* =========================
+   SOCKET
+========================= */
+function initSocket() {
+    socket = new WebSocket("/api/ws/conversations");
+
+    socket.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+
+        if (data.type === "message") {
+            const msg = data.message;
+            console.log("💬 MESSAGE EVENT:", msg);
+
+            if (msg.conversation_id === currentConversationId) {
+                console.log("✅ RENDERING MESSAGE IN UI");
+
+                renderMessage(msg);
+                scrollToBottom();
+            } else {
+                console.log("🚫 MESSAGE NOT FOR ACTIVE CHAT");
+            }   
+        }
+    };
+}
+
+/* =========================
+   SEND MESSAGE
+========================= */
+function sendMessage() {
+    const input = document.getElementById("messageInput");
+
+    const content = input.value.trim();
+    if (!content || !currentConversationId) return;
+
+    socket.send(JSON.stringify({
+        conversation_id: currentConversationId,
+        content: content
+    }));
+
+    input.value = "";
+}
+
+/* =========================
+   MESSAGE RENDERING
+========================= */
+function renderMessage(m) {
+    const container = document.getElementById("chatMessages");
+
+    const div = document.createElement("div");
+    div.className = "message";
+
+    if (m.sender_id === currentUserId) {
+        div.classList.add("mine");
+    } else {
+        div.classList.add("theirs");
+    }
+
+    div.innerText = m.content;
+
+    container.appendChild(div);
+}
+
+/* =========================
+   SCROLL
+========================= */
+function scrollToBottom() {
+    const container = document.getElementById("chatMessages");
+    container.scrollTop = container.scrollHeight;
+}
+
+/* =========================
+   CONVERSATIONS LIST
+========================= */
 function renderConversations() {
     const container = document.getElementById("conversationList");
     container.innerHTML = "";
+
     conversations.forEach(c => {
         const div = document.createElement("div");
         div.className = "conversation-item";
@@ -79,6 +154,9 @@ function renderConversations() {
     });
 }
 
+/* =========================
+   OPEN CONVERSATION
+========================= */
 async function openConversation(c) {
     currentConversationId = c.conversation_id;
 
@@ -93,24 +171,32 @@ async function openConversation(c) {
     container.innerHTML = "";
 
     if (data.messages) {
-        data.messages.forEach(m => {
-            const div = document.createElement("div");
-
-            div.className = "message";
-
-            if (m.sender_id === currentUserId) {
-                div.classList.add("mine");
-            } else {
-                div.classList.add("theirs");
-            }
-
-            div.innerText = m.content;
-            container.appendChild(div);
-        });
+        data.messages.forEach(renderMessage);
     }
+
+    scrollToBottom();
 }
 
+/* =========================
+   EVENTS
+========================= */
+document.getElementById("sendBtn").onclick = sendMessage;
+
+document.getElementById("messageInput").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+        sendMessage();
+    }
+});
+
+window.addEventListener("beforeunload", () => {
+    if (socket) socket.close();
+});
+
+/* =========================
+   INIT
+========================= */
 renderConversations();
+initSocket();
 
 </script>
 
