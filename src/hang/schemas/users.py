@@ -126,25 +126,8 @@ class UserUpdate(BaseModel):
     images: Optional[List[ImageUpdate]] = []
 
 
-class BlockedUserResponse(BaseModel):
-    user_id: int
-    first_name: str
-    last_name: str
-
-
 class BlockUserCreate(BaseModel):
     blocked_user_id: int
-
-
-class ReportResponse(BaseModel):
-    reported_user_id: int
-    reason: str
-    message: Optional[str]
-    created_at: datetime
-
-
-class DeleteReportRequest(BaseModel):
-    reported_user_id: int
 
 
 class ReportUserCreate(BaseModel):

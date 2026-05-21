@@ -3,7 +3,7 @@ import boto3
 from botocore.config import Config
 from typing import List
 
-from hang.schemas.config import settings
+from hang.schemas.config import conf
 
 logger = logging.getLogger("Hang")
 
@@ -12,14 +12,14 @@ class StorageService:
     def __init__(self):
         self.s3 = boto3.client(
             "s3",
-            endpoint_url=settings.R2_ENDPOINT,
-            aws_access_key_id=settings.R2_ACCESS_KEY_ID,
-            aws_secret_access_key=settings.R2_SECRET_ACCESS_KEY,
+            endpoint_url=conf.R2_ENDPOINT,
+            aws_access_key_id=conf.R2_ACCESS_KEY_ID,
+            aws_secret_access_key=conf.R2_SECRET_ACCESS_KEY,
             region_name="auto",
             config=Config(signature_version="s3v4"),
         )
 
-        self.bucket = settings.R2_BUCKET_NAME
+        self.bucket = conf.R2_BUCKET_NAME
 
     def build_image_url(self, key: str) -> str:
         logger.info(

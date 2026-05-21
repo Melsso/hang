@@ -10,7 +10,7 @@ import imghdr
 import logging
 
 from hang.schemas.users import UserResponse, UserCreate
-from hang.schemas.config import settings
+from hang.schemas.config import conf
 from hang.models.db_models import User, UserImage, UserBlock, UserReport
 
 from hang.core.database import get_db
@@ -28,9 +28,7 @@ def get_current_user(request: Request, db: Annotated[Session, Depends(get_db)]) 
         raise HTTPException(status_code=401, detail="Not authenticated")
 
     try:
-        payload = jwt.decode(
-            token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
-        )
+        payload = jwt.decode(token, conf.SECRET_KEY, algorithms=[conf.ALGORITHM])
 
         user_id = payload.get("sub")
 
@@ -171,17 +169,6 @@ def update_profile_info(
     storage.delete_many(keys=keys_to_delete)
 
 
-def get_blocked_users(db: Session, user_id: int) -> list[User]:
-    rows = (
-        db.query(User)
-        .join(UserBlock, User.user_id == UserBlock.blocked_id)
-        .filter(UserBlock.blocker_id == user_id)
-        .all()
-    )
-
-    return rows
-
-
 def block_user(db: Session, blocker_id: int, blocked_id: int) -> bool:
     if blocker_id == blocked_id:
         return False
@@ -206,25 +193,6 @@ def block_user(db: Session, blocker_id: int, blocked_id: int) -> bool:
     return True
 
 
-def unblock_user(db: Session, blocker_id: int, blocked_id: int) -> bool:
-    block = (
-        db.query(UserBlock)
-        .filter(
-            UserBlock.blocker_id == blocker_id,
-            UserBlock.blocked_id == blocked_id,
-        )
-        .first()
-    )
-
-    if not block:
-        return False
-
-    db.delete(block)
-    db.commit()
-
-    return True
-
-
 def is_blocked(db: Session, user_id: int, target_user_id: int) -> bool:
     return (
         db.query(UserBlock)
@@ -242,15 +210,6 @@ def is_blocked(db: Session, user_id: int, target_user_id: int) -> bool:
         )
         .first()
         is not None
-    )
-
-
-def get_user_reports(db: Session, user_id: int) -> list[UserReport]:
-    return (
-        db.query(UserReport)
-        .filter(UserReport.reporter_id == user_id)
-        .order_by(UserReport.created_at.desc())
-        .all()
     )
 
 
@@ -289,33 +248,14 @@ def report_user(
     return True
 
 
-def delete_report(db: Session, reporter_id: int, reported_id: int) -> bool:
-    report = (
-        db.query(UserReport)
-        .filter(
-            UserReport.reporter_id == reporter_id,
-            UserReport.reported_id == reported_id,
-        )
-        .first()
-    )
-
-    if not report:
-        return False
-
-    db.delete(report)
-    db.commit()
-
-    return True
-
-
 async def inspect_and_collect_files(
     files: list[UploadFile], current_count: int
 ) -> tuple[list[str], list[tuple[bytes, str]]]:
     errs: list[str] = []
     file_payloads: list[tuple[bytes, str]] = []
 
-    if current_count + len(files) > settings.MAX_IMAGES:
-        errs.append(f"Maximum of {settings.MAX_IMAGES} images allowed")
+    if current_count + len(files) > conf.MAX_IMAGES:
+        errs.append(f"Maximum of {conf.MAX_IMAGES} images allowed")
         return errs, file_payloads
 
     for f in files:
@@ -325,13 +265,13 @@ async def inspect_and_collect_files(
             errs.append("Empty file provided.")
             continue
 
-        if len(contents) > settings.MAX_IMAGE_SIZE:
+        if len(contents) > conf.MAX_IMAGE_SIZE:
             errs.append("File too large.")
             continue
 
         ext = imghdr.what(None, h=contents)
 
-        if ext not in settings.ALLOWED_IMAGE_TYPES:
+        if ext not in conf.ALLOWED_IMAGE_TYPES:
             errs.append("Image type not allowed.")
             continue
 

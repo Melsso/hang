@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from typing import Annotated
 
 from hang.schemas.users import Interests, UserCreate, UserLogin
-from hang.schemas.config import settings
+from hang.schemas.config import conf
 from hang.models.db_models import User
 
 from hang.core.database import get_db
@@ -110,7 +110,7 @@ def register_get(
     return render(
         request=request,
         template="register.html",
-        context={"countries": settings.COUNTRIES, "interests": Interests},
+        context={"countries": conf.COUNTRIES, "interests": Interests},
     )
 
 

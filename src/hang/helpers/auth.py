@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 
 from typing import Optional
 
-from hang.schemas.config import settings
+from hang.schemas.config import conf
 from hang.models.db_models import User
 
 
@@ -24,11 +24,11 @@ def create_access_token(data: dict):
     to_encode = data.copy()
 
     expire = datetime.now(timezone.utc) + timedelta(
-        minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
+        minutes=conf.ACCESS_TOKEN_EXPIRE_MINUTES
     )
     to_encode.update({"exp": expire})
 
-    return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+    return jwt.encode(to_encode, conf.SECRET_KEY, algorithm=conf.ALGORITHM)
 
 
 def authenticate_user(db: Session, email: str, password: str) -> Optional[User]:

@@ -10,7 +10,7 @@ import asyncio
 import logging
 
 from hang.schemas.conversations import MessagePreview
-from hang.schemas.config import settings
+from hang.schemas.config import conf
 from hang.models.db_models import User
 
 from hang.helpers.messages import send_message_flow, mark_conversation_messages_read
@@ -212,9 +212,7 @@ def get_current_user_ws(ws: WebSocket, db: Session) -> User:
         raise WebSocketDisconnect(code=1008)
 
     try:
-        payload = jwt.decode(
-            token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
-        )
+        payload = jwt.decode(token, conf.SECRET_KEY, algorithms=[conf.ALGORITHM])
 
         user_id = payload.get("sub")
 

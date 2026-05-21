@@ -4,7 +4,7 @@ from sqlalchemy.orm import sessionmaker
 import time
 import logging
 
-from hang.schemas.config import settings
+from hang.schemas.config import conf
 from hang.models.db_models import Base
 
 logger = logging.getLogger("Hang")
@@ -27,8 +27,8 @@ def init_db():
                 },
             )
             DATABASE_URL = (
-                f"postgresql+psycopg://{settings.DB_USER}:{settings.DB_PASSWORD}"
-                f"@{settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}"
+                f"postgresql+psycopg://{conf.DB_USER}:{conf.DB_PASSWORD}"
+                f"@{conf.DB_HOST}:{conf.DB_PORT}/{conf.DB_NAME}"
             )
             engine = create_engine(DATABASE_URL, echo=False)
 
