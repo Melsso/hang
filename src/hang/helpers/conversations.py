@@ -1,3 +1,4 @@
+from fastapi import HTTPException, Request
 from sqlalchemy.orm import Session
 from typing import Optional
 
@@ -74,10 +75,9 @@ def fetch_conversations_list(
     return result
 
 
-# TODO raise exception rather than returning none in future
 def get_user_conversation(
-    db: Session, user_id: int, conversation_id: int
-) -> Optional[Conversation]:
+    db: Session, user_id: int, conversation_id: int, req: Request
+) -> Conversation:
     conversation = (
         db.query(Conversation)
         .filter(Conversation.conversation_id == conversation_id)
@@ -85,10 +85,22 @@ def get_user_conversation(
     )
 
     if not conversation:
-        return None
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "redirect_url": req.headers.get("referer"),
+                "reason": "no_conversation_found",
+            },
+        )
 
     if user_id not in [conversation.user1_id, conversation.user2_id]:
-        return None
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "redirect_url": req.headers.get("referer"),
+                "reason": "no_conversation_access",
+            },
+        )
 
     return conversation
 
@@ -100,4 +112,19 @@ def get_all_user_conversations(
         db.query(Conversation)
         .filter((Conversation.user1_id == user_id) | (Conversation.user2_id == user_id))
         .all()
+    )
+
+
+def verify_conversation(db: Session, user1_id: int, user2_id: int) -> bool:
+    return (
+        db.query(Conversation)
+        .filter(
+            ((Conversation.user1_id == user1_id) & (Conversation.user2_id == user2_id))
+            | (
+                (Conversation.user1_id == user2_id)
+                & (Conversation.user2_id == user1_id)
+            )
+        )
+        .first()
+        is not None
     )

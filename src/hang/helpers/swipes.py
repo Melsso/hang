@@ -1,11 +1,16 @@
 from sqlalchemy.orm import Session
 from typing import Optional
 
+import logging
+
 from hang.schemas.swipes import SwipeType, SwipeCreate
 from hang.schemas.users import UserSwipeProfile
 from hang.models.db_models import User, Swipe, Conversation
 
 from hang.core.storage import StorageService
+
+
+logger = logging.getLogger("Hang")
 
 
 def fetch_candidate_profiles(db: Session, user_id: int) -> list[User]:
@@ -78,7 +83,6 @@ def is_match(db: Session, user_id: int, target_user_id: int) -> bool:
 def process_swipe(
     db: Session, swipeData: SwipeCreate, user: User
 ) -> Optional[Conversation]:
-    # TODO exception handling
     try:
         swipe = Swipe(
             from_user_id=user.user_id,
@@ -109,6 +113,19 @@ def process_swipe(
 
         return conversation
 
-    except Exception:
+    except Exception as exc:
         db.rollback()
+        logger.error(
+            "hang_event",
+            extra={
+                "event": "db_swipe_create",
+                "status": "failed",
+                "error_type": type(exc).__name__,
+                "error_message": str(exc),
+                "context": {
+                    "location": "swipe_user",
+                    "email": user.email,
+                },
+            },
+        )
         return None

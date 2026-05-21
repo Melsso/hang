@@ -9,7 +9,9 @@ from hang.models.db_models import User
 
 from hang.core.database import get_db
 from hang.helpers.template_helpers import render, form_to_model
-from hang.helpers.auth import register_user, create_access_token, authenticate_user
+from hang.helpers.auth import create_access_token, authenticate_user
+from hang.helpers.users import register_user
+
 
 auth_router = APIRouter(prefix="/auth", tags=["auth"])
 

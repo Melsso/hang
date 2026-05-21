@@ -1,8 +1,8 @@
-from fastapi import WebSocket, Depends, HTTPException
+from fastapi import WebSocket
+from starlette.websockets import WebSocketDisconnect
 
 from sqlalchemy.orm import Session
 from collections import defaultdict
-from typing import Annotated
 from jose import jwt, JWTError
 import json
 import time
@@ -13,7 +13,6 @@ from hang.schemas.conversations import MessagePreview
 from hang.schemas.config import settings
 from hang.models.db_models import User
 
-from hang.core.database import get_db
 from hang.helpers.messages import send_message_flow, mark_conversation_messages_read
 from hang.helpers.conversations import get_user_conversation
 
@@ -206,11 +205,11 @@ async def handle_ws_message(
     )
 
 
-def get_current_user_ws(ws: WebSocket, db: Annotated[Session, Depends(get_db)]) -> User:
+def get_current_user_ws(ws: WebSocket, db: Session) -> User:
     token = ws.cookies.get("access_token")
 
     if not token:
-        raise HTTPException(status_code=401, detail="Not authenticated")
+        raise WebSocketDisconnect(code=1008)
 
     try:
         payload = jwt.decode(
@@ -220,14 +219,14 @@ def get_current_user_ws(ws: WebSocket, db: Annotated[Session, Depends(get_db)]) 
         user_id = payload.get("sub")
 
         if not user_id:
-            raise HTTPException(status_code=401, detail="Invalid token")
+            raise WebSocketDisconnect(code=1008)
 
         user = db.query(User).filter(User.user_id == int(user_id)).first()
 
         if not user:
-            raise HTTPException(status_code=404, detail="User not found")
+            raise WebSocketDisconnect(code=1008)
 
         return user
 
     except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid or expired token")
+        raise WebSocketDisconnect(code=1008)

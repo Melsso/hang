@@ -6,16 +6,20 @@ from jose import jwt, JWTError
 from typing import Annotated, Optional
 from uuid import uuid4
 import imghdr
+import logging
 
-from hang.schemas.users import UserResponse
+from hang.schemas.users import UserResponse, UserCreate
 from hang.schemas.config import settings
 from hang.models.db_models import User, UserImage
 
 from hang.core.database import get_db
 from hang.core.storage import StorageService
+from hang.helpers.auth import hash_password
 
 
-# TODO rework slightly, doesnt need to raise exception, that should be done explicitly in endpoint
+logger = logging.getLogger("Hang")
+
+
 def get_current_user(request: Request, db: Annotated[Session, Depends(get_db)]) -> User:
     token = request.cookies.get("access_token")
 
@@ -41,6 +45,58 @@ def get_current_user(request: Request, db: Annotated[Session, Depends(get_db)]) 
 
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+
+def register_user(db: Session, user_data: UserCreate) -> Optional[User]:
+    new_user = User(
+        first_name=user_data.first_name,
+        last_name=user_data.last_name,
+        email=user_data.email.lower(),
+        password=hash_password(user_data.password),
+        birthdate=user_data.birthdate,
+        bio=user_data.bio,
+        country=user_data.country,
+        gender=user_data.gender,
+        interested_in=user_data.interested_in,
+        interests=user_data.interests,
+        is_active=True,
+    )
+
+    try:
+        db.add(new_user)
+        db.commit()
+        db.refresh(new_user)
+        logger.info(
+            "hang_event",
+            extra={
+                "event": "db_user_create",
+                "status": "success",
+                "context": {
+                    "location": "register_user",
+                    "user_email": new_user.email,
+                    "user_id": new_user.user_id,
+                },
+            },
+        )
+
+    except Exception as exc:
+        db.rollback()
+        logger.error(
+            "hang_event",
+            extra={
+                "event": "db_user_create",
+                "status": "failed",
+                "error_type": type(exc).__name__,
+                "error_message": str(exc),
+                "context": {
+                    "location": "register_user",
+                    "email": user_data.email.lower(),
+                },
+            },
+        )
+        return None
+
+    return new_user
 
 
 def create_user_resp_data(user: User, storage: StorageService) -> dict:
@@ -183,17 +239,36 @@ def process_file_payloads(
 
         db.commit()
 
-    except SQLAlchemyError:
+    except SQLAlchemyError as exc:
         db.rollback()
         if uploaded_keys:
             storage.delete_many(keys=uploaded_keys)
+        logger.error(
+            "hang_event",
+            extra={
+                "event": "user_update",
+                "status": "failed",
+                "error_type": type(exc).__name__,
+                "error_message": str(exc),
+                "context": {"location": "process_file_payloads"},
+            },
+        )
 
         return ["Failed to save uploaded images."]
 
-    except Exception:
+    except Exception as exc:
         if uploaded_keys:
             storage.delete_many(keys=uploaded_keys)
-
+        logger.error(
+            "hang_event",
+            extra={
+                "event": "user_update",
+                "status": "failed",
+                "error_type": type(exc).__name__,
+                "error_message": str(exc),
+                "context": {"location": "process_file_payloads"},
+            },
+        )
         return ["Failed to upload images."]
 
     return None

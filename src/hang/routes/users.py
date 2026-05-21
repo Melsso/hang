@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Depends, UploadFile, File, Request
+from fastapi import APIRouter, Depends, UploadFile, File, Request, HTTPException
 from sqlalchemy.orm import Session
 from typing import Annotated
+import logging
 
 from hang.schemas.users import UserUpdate, Interests
 from hang.schemas.config import settings
@@ -10,6 +11,7 @@ from hang.core.database import get_db
 from hang.core.storage import StorageService, get_storage
 
 from hang.helpers.template_helpers import render, form_to_model
+from hang.helpers.conversations import verify_conversation
 from hang.helpers.users import (
     create_user_resp_data,
     check_email_availability,
@@ -19,7 +21,9 @@ from hang.helpers.users import (
     get_current_user,
 )
 
+
 user_router = APIRouter(prefix="/users", tags=["users"])
+logger = logging.getLogger("Hang")
 
 
 @user_router.get("/profile")
@@ -69,7 +73,19 @@ def profile_post(
             },
         )
 
-    update_profile_info(db=db, update_data=update_data, user=user, storage=storage)
+    try:
+        update_profile_info(db=db, update_data=update_data, user=user, storage=storage)
+    except Exception as exc:
+        logger.error(
+            "hang_event",
+            extra={
+                "event": "user_update",
+                "status": "failed",
+                "error_type": type(exc).__name__,
+                "error_message": str(exc),
+                "context": {"location": "profile_post"},
+            },
+        )
 
     return render(
         request=request,
@@ -90,6 +106,15 @@ def visit_profile_get(
     storage: Annotated[StorageService, Depends(get_storage)],
     user_id: int,
 ):
+    if not verify_conversation(user.user_id, user_id):
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "redirect_url": request.headers.get("referer"),
+                "reason": "no_conversation_access",
+            },
+        )
+
     target_user = db.query(User).filter(User.user_id == user_id).first()
 
     return render(

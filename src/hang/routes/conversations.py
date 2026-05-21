@@ -48,14 +48,16 @@ def messages_by_conv_id_get(
     conversation = get_user_conversation(
         db=db, user_id=user.user_id, conversation_id=conversation_id
     )
-    if not conversation:
-        return None
 
-    msg_lst = get_conversation_messages(db=db, conversation_id=conversation_id)
+    msg_lst = get_conversation_messages(
+        db=db, conversation_id=conversation.conversation_id
+    )
     mark_conversation_messages_read(
-        db=db, conversation_id=conversation_id, user_id=user.user_id
+        db=db, conversation_id=conversation.conversation_id, user_id=user.user_id
     )
 
     return MessageListResponse(
-        conversation_id=conversation_id, current_user_id=user.user_id, messages=msg_lst
+        conversation_id=conversation.conversation_id,
+        current_user_id=user.user_id,
+        messages=msg_lst,
     )

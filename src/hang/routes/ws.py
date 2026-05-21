@@ -19,41 +19,39 @@ async def conversation_ws(
     websocket: WebSocket,
     db: Annotated[Session, Depends(get_db)],
 ):
-    await websocket.accept()
-    connection_id = str(uuid.uuid4())
-    start_time = time.time()
+    try:
+        await websocket.accept()
+        connection_id = str(uuid.uuid4())
+        start_time = time.time()
 
-    user = get_current_user_ws(ws=websocket, db=db)
-    websocket.state.connection_id = connection_id
-    websocket.state.user_id = user.user_id
+        user = get_current_user_ws(ws=websocket, db=db)
 
-    logger.info(
-        "hang_event",
-        extra={
-            "event": "ws_open",
-            "status": "success",
-            "connection_id": connection_id,
-            "user_id": user.user_id,
-        },
-    )
-
-    await manager.connect_user(user_id=user.user_id, websocket=websocket)
-    conversations = get_all_user_conversations(db=db, user_id=user.user_id)
-
-    for c in conversations:
-        manager.join_room(c.conversation_id, websocket)
         logger.info(
             "hang_event",
             extra={
-                "event": "ws_join_room",
+                "event": "ws_open",
                 "status": "success",
                 "connection_id": connection_id,
                 "user_id": user.user_id,
-                "context": {"conversation_id": c.conversation_id},
             },
         )
 
-    try:
+        await manager.connect_user(user_id=user.user_id, websocket=websocket)
+        conversations = get_all_user_conversations(db=db, user_id=user.user_id)
+
+        for c in conversations:
+            manager.join_room(c.conversation_id, websocket)
+            logger.info(
+                "hang_event",
+                extra={
+                    "event": "ws_join_room",
+                    "status": "success",
+                    "connection_id": connection_id,
+                    "user_id": user.user_id,
+                    "context": {"conversation_id": c.conversation_id},
+                },
+            )
+
         while True:
             raw = await websocket.receive_text()
 
