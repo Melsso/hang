@@ -135,6 +135,14 @@
     color:white;
 }
 
+.typing-indicator {
+    font-size:12px; 
+    color:gray;
+    display: none;
+    text-align:center;
+    width:100%;
+} 
+
 .chat-input {
     display:flex;
     gap:10px;
@@ -175,4 +183,13 @@
     background: var(--primary);
     align-self:flex-end;
     text-align:left;
+}
+
+.message-status {
+    font-size:12px;
+    color:#888;
+    margin-top:2px;
+    padding:0 4px;
+    opacity:0.8;
+    text-align:right;
 }

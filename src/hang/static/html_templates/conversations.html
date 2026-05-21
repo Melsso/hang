@@ -33,7 +33,7 @@
             </div>
 
             <div class="chat-messages" id="chatMessages"></div>
-
+            <div id="typingIndicator" class="typing-indicator" style="font-size: 12px; color: gray;"></div>
             <div class="chat-input">
                 <input type="text" id="messageInput" placeholder="Type a message...">
                 <button id="sendBtn">Send</button>
@@ -49,8 +49,10 @@
 let conversations = {{ conversations | tojson }};
 let currentConversationId = null;
 let currentUserId = null;
-
+let lastMessageEl = null;
 let socket = null;
+let typingTimeout = null;
+let isTyping = false;
 
 const conversationElements = {};
 
@@ -59,34 +61,59 @@ function initSocket() {
 
     socket.onmessage = (event) => {
         const data = JSON.parse(event.data);
-
         if (data.type === "ping") {
             socket.send(JSON.stringify({ type: "pong" }));
             return;
+        }
+
+        if (data.type == "read") {
+            const isActiveChat = data.conversation_id === currentConversationId;
+            if (!isActiveChat) return;
+            if (currentUserId == data.user_id) return;
+            if (lastMessageEl) {
+                const status = lastMessageEl.querySelector(".message-status");
+                if (status) status.innerText = "read";
+            }
         }
 
         if (data.type === "message") {
             const msg = data.message;
 
             const isActiveChat = msg.conversation_id === currentConversationId;
-
             if (isActiveChat) {
                 renderMessage(msg);
                 scrollToBottom();
-
-                socket.send(JSON.stringify({
-                    type: "read",
-                    conversation_id: currentConversationId
-                }));
+                if (msg.sender_id != currentUserId) {
+                    socket.send(JSON.stringify({
+                        type: "read",
+                        conversation_id: currentConversationId
+                    }));
+                }
+                if (currentUserId != msg.sender_id) {
+                    const status = lastMessageEl.querySelector(".message-status");
+                    if (status) status.innerText = "read";
+                } 
             }
-
             updateConversationPreview(msg, isActiveChat);
         }
-    };
 
-    socket.onclose = () => {
-        console.log("WS disconnected");
+        if (data.type === "typing") {
+            if (
+                data.conversation_id === currentConversationId &&
+                data.user_id !== currentUserId
+            ) {
+                showTypingIndicator(data.is_typing);
+            }
+        }
     };
+}
+
+function showTypingIndicator(isTyping) {
+    const el = document.getElementById("typingIndicator");
+    if (!el) return;
+
+    el.innerText = "typing...";
+    el.style.display = isTyping ? "block" : "none";
 }
 
 function sendMessage() {
@@ -103,20 +130,64 @@ function sendMessage() {
     input.value = "";
 }
 
+function handleTyping() {
+    if (!currentConversationId) return;
+
+    if (!isTyping) {
+        isTyping = true;
+
+        socket.send(JSON.stringify({
+            type: "typing",
+            conversation_id: currentConversationId,
+            is_typing: true
+        }));
+    }
+
+    clearTimeout(typingTimeout);
+
+    typingTimeout = setTimeout(() => {
+        isTyping = false;
+
+        socket.send(JSON.stringify({
+            type: "typing",
+            conversation_id: currentConversationId,
+            is_typing: false
+        }));
+    }, 1200);
+}
+
 function renderMessage(m) {
     const container = document.getElementById("chatMessages");
 
     const div = document.createElement("div");
     div.className = "message";
 
-    if (m.sender_id === currentUserId) {
-        div.classList.add("mine");
-    } else {
-        div.classList.add("theirs");
+    div.classList.add(m.sender_id === currentUserId ? "mine" : "theirs");
+
+    const content = document.createElement("div");
+    content.className = "message-content";
+    content.innerText = m.content;
+
+    const status = document.createElement("div");
+    status.className = "message-status";
+
+    status.innerText = m.is_read ? "read" : "sent";
+
+    div.appendChild(content);
+    div.appendChild(status);
+
+    if (lastMessageEl) {
+        const oldStatus = lastMessageEl.querySelector(".message-status");
+        if (oldStatus) oldStatus.remove();
     }
 
-    div.innerText = m.content;
+    lastMessageEl = div;
+
     container.appendChild(div);
+
+    requestAnimationFrame(() => {
+        container.scrollTop = container.scrollHeight;
+    });
 }
 
 function scrollToBottom() {
@@ -146,7 +217,7 @@ function updateConversationPreview(msg, isActiveChat) {
     }
 
     const list = document.getElementById("conversationList");
-    list.prepend(el);
+    if (list.firstChild !== el) list.prepend(el);
 }
 
 function renderConversations() {
@@ -196,7 +267,9 @@ async function openConversation(c) {
 
     data.messages?.forEach(renderMessage);
 
-    scrollToBottom();
+    requestAnimationFrame(() => {
+        scrollToBottom();
+    });
 
     const el = conversationElements[c.conversation_id];
     if (el) {
@@ -206,6 +279,25 @@ async function openConversation(c) {
             badge.style.display = "none";
         }
     }
+
+    showTypingIndicator(false);
+    const messages = data.messages || [];
+    if (messages.length > 0) {
+        const lastMsg = messages.at(-1);
+
+        const isFromOtherUser = lastMsg.sender_id !== currentUserId;
+
+        if (isFromOtherUser) {
+            socket.send(JSON.stringify({
+                type: "read",
+                conversation_id: currentConversationId
+            }));
+            if (lastMessageEl) {
+                const status = lastMessageEl.querySelector(".message-status");
+                if (status) status.innerText = "read";
+            }
+        }
+    }
 }
 
 document.getElementById("sendBtn").onclick = sendMessage;
@@ -213,6 +305,8 @@ document.getElementById("sendBtn").onclick = sendMessage;
 document.getElementById("messageInput").addEventListener("keydown", (e) => {
     if (e.key === "Enter") sendMessage();
 });
+
+document.getElementById("messageInput").addEventListener("input", handleTyping);
 
 window.addEventListener("beforeunload", () => {
     if (socket) socket.close();

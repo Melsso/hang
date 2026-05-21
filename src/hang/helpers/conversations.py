@@ -91,3 +91,13 @@ def get_user_conversation(
         return None
 
     return conversation
+
+
+def get_all_user_conversations(
+    db: Session, user_id: int
+) -> Optional[list[Conversation]]:
+    return (
+        db.query(Conversation)
+        .filter((Conversation.user1_id == user_id) | (Conversation.user2_id == user_id))
+        .all()
+    )

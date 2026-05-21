@@ -4,7 +4,7 @@ from typing import Annotated
 
 from hang.helpers.ws import manager, handle_ws_message, get_current_user_ws
 from hang.helpers.database import get_db
-from hang.helpers.conversations import get_user_conversation
+from hang.helpers.conversations import get_all_user_conversations
 
 ws_router = APIRouter(prefix="/ws", tags=["ws"])
 
@@ -19,28 +19,14 @@ async def conversation_ws(
     user = get_current_user_ws(ws=websocket, db=db)
 
     await manager.connect_user(user_id=user.user_id, websocket=websocket)
+    conversations = get_all_user_conversations(db=db, user_id=user.user_id)
+
+    for c in conversations:
+        manager.join_room(c.conversation_id, websocket)
 
     try:
         while True:
             raw = await websocket.receive_text()
-
-            data = None
-            try:
-                import json
-
-                data = json.loads(raw)
-            except Exception:
-                continue
-
-            conversation_id = data.get("conversation_id")
-
-            if conversation_id:
-                conversation = get_user_conversation(
-                    db=db, user_id=user.user_id, conversation_id=conversation_id
-                )
-
-                if conversation:
-                    manager.join_room(conversation_id, websocket)
 
             await handle_ws_message(
                 db=db, websocket=websocket, user_id=user.user_id, raw=raw

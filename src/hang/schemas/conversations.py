@@ -32,6 +32,7 @@ class MessagePreview(BaseModel):
     sender_id: int
     content: str
     created_at: datetime
+    is_read: bool
 
     model_config = ConfigDict(from_attributes=True)
 

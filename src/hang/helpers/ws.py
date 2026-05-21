@@ -115,7 +115,25 @@ async def handle_ws_message(
         manager.mark_pong(websocket)
         return
 
-    if data.get("type") == "read_ack":
+    if data.get("type") == "typing":
+        conversation_id = data.get("conversation_id")
+        is_typing = data.get("is_typing", False)
+
+        if not conversation_id:
+            return
+
+        await manager.broadcast(
+            conversation_id,
+            {
+                "type": "typing",
+                "user_id": user_id,
+                "conversation_id": conversation_id,
+                "is_typing": is_typing,
+            },
+        )
+        return
+
+    if data.get("type") == "read":
         conversation_id = data.get("conversation_id")
 
         if not conversation_id:
@@ -126,8 +144,14 @@ async def handle_ws_message(
             conversation_id=conversation_id,
             user_id=user_id,
         )
-
-        db.commit()
+        await manager.broadcast(
+            conversation_id,
+            {
+                "type": "read",
+                "conversation_id": conversation_id,
+                "user_id": user_id,
+            },
+        )
         return
 
     conversation_id = data.get("conversation_id")
