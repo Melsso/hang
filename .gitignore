@@ -1,6 +1,7 @@
 __pycache__/
 *.py[cod]
 *$py.class
+.ruff_cache
 
 .venv/
 env/
@@ -16,7 +17,7 @@ Dockerfile*
 inject_data.py
 
 resources/
-static/images
+images/
 
 .vscode/
 .idea/
