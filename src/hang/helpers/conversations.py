@@ -1,20 +1,41 @@
 from fastapi import HTTPException, Request
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, aliased
+from sqlalchemy import or_, and_
 from typing import Optional
 
 from hang.schemas.conversations import ConversationPreview
-from hang.models.db_models import User, Conversation, Message
+from hang.models.db_models import User, Conversation, Message, UserBlock
 
 from hang.core.storage import StorageService
+from hang.helpers.users import is_blocked
 
 
 def fetch_conversations_list(
     db: Session, user_id: int, storage: StorageService
 ) -> Optional[list[ConversationPreview]]:
-
+    BlockA = aliased(UserBlock)
+    BlockB = aliased(UserBlock)
     conversations = (
         db.query(Conversation)
+        .outerjoin(
+            BlockA,
+            (BlockA.blocker_id == user_id)
+            & (
+                (BlockA.blocked_id == Conversation.user1_id)
+                | (BlockA.blocked_id == Conversation.user2_id)
+            ),
+        )
+        .outerjoin(
+            BlockB,
+            (
+                (BlockB.blocker_id == Conversation.user1_id)
+                | (BlockB.blocker_id == Conversation.user2_id)
+            )
+            & (BlockB.blocked_id == user_id),
+        )
         .filter((Conversation.user1_id == user_id) | (Conversation.user2_id == user_id))
+        .filter(BlockA.id.is_(None))  # I did not block them
+        .filter(BlockB.id.is_(None))  # they did not block me
         .order_by(Conversation.updated_at.desc())
         .all()
     )
@@ -76,7 +97,10 @@ def fetch_conversations_list(
 
 
 def get_user_conversation(
-    db: Session, user_id: int, conversation_id: int, req: Request
+    db: Session,
+    user_id: int,
+    conversation_id: int,
+    req: Request,
 ) -> Conversation:
     conversation = (
         db.query(Conversation)
@@ -86,14 +110,14 @@ def get_user_conversation(
 
     if not conversation:
         raise HTTPException(
-            status_code=404,
+            status_code=403,
             detail={
                 "redirect_url": req.headers.get("referer"),
                 "reason": "no_conversation_found",
             },
         )
 
-    if user_id not in [conversation.user1_id, conversation.user2_id]:
+    if user_id not in (conversation.user1_id, conversation.user2_id):
         raise HTTPException(
             status_code=403,
             detail={
@@ -102,17 +126,59 @@ def get_user_conversation(
             },
         )
 
+    other_user_id = (
+        conversation.user2_id
+        if conversation.user1_id == user_id
+        else conversation.user1_id
+    )
+
+    blocked = (
+        db.query(UserBlock)
+        .filter(
+            or_(
+                and_(
+                    UserBlock.blocker_id == user_id,
+                    UserBlock.blocked_id == other_user_id,
+                ),
+                and_(
+                    UserBlock.blocker_id == other_user_id,
+                    UserBlock.blocked_id == user_id,
+                ),
+            )
+        )
+        .first()
+    )
+
+    if blocked:
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "redirect_url": req.headers.get("referer"),
+                "reason": "user_blocked",
+            },
+        )
+
     return conversation
 
 
-def get_all_user_conversations(
-    db: Session, user_id: int
-) -> Optional[list[Conversation]]:
-    return (
+def get_all_user_conversations(db: Session, user_id: int) -> list[Conversation]:
+    conversations = (
         db.query(Conversation)
         .filter((Conversation.user1_id == user_id) | (Conversation.user2_id == user_id))
         .all()
     )
+
+    filtered = []
+
+    for c in conversations:
+        other_user_id = c.user2_id if c.user1_id == user_id else c.user1_id
+
+        if is_blocked(db, user_id, other_user_id):
+            continue
+
+        filtered.append(c)
+
+    return filtered
 
 
 def verify_conversation(db: Session, user1_id: int, user2_id: int) -> bool:

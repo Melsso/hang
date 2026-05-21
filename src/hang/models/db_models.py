@@ -1,4 +1,13 @@
-from sqlalchemy import String, Boolean, Date, DateTime, Enum, ForeignKey
+from sqlalchemy import (
+    String,
+    Boolean,
+    Date,
+    DateTime,
+    Enum,
+    ForeignKey,
+    UniqueConstraint,
+    Text,
+)
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Mapped, mapped_column, DeclarativeBase, relationship
 from datetime import datetime, timezone, date
@@ -48,6 +57,50 @@ class User(Base):
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
     )
+
+
+class UserBlock(Base):
+    __tablename__ = "user_blocks"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+
+    blocker_id: Mapped[int] = mapped_column(ForeignKey("users.user_id"), nullable=False)
+    blocked_id: Mapped[int] = mapped_column(ForeignKey("users.user_id"), nullable=False)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+    __table_args__ = (
+        UniqueConstraint("blocker_id", "blocked_id", name="uq_user_block"),
+    )
+
+    blocker = relationship("User", foreign_keys=[blocker_id])
+    blocked = relationship("User", foreign_keys=[blocked_id])
+
+
+class UserReport(Base):
+    __tablename__ = "user_reports"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+
+    reporter_id: Mapped[int] = mapped_column(
+        ForeignKey("users.user_id"), nullable=False
+    )
+    reported_id: Mapped[int] = mapped_column(
+        ForeignKey("users.user_id"), nullable=False
+    )
+
+    reason: Mapped[str] = mapped_column(String(100), nullable=False)
+    message: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    status: Mapped[str] = mapped_column(String(20), default="open")
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+
+    reporter = relationship("User", foreign_keys=[reporter_id])
+    reported = relationship("User", foreign_keys=[reported_id])
 
 
 class UserImage(Base):

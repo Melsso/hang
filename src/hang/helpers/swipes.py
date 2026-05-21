@@ -1,11 +1,11 @@
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, aliased
 from typing import Optional
 
 import logging
 
 from hang.schemas.swipes import SwipeType, SwipeCreate
 from hang.schemas.users import UserSwipeProfile
-from hang.models.db_models import User, Swipe, Conversation
+from hang.models.db_models import User, Swipe, Conversation, UserBlock
 
 from hang.core.storage import StorageService
 
@@ -18,11 +18,22 @@ def fetch_candidate_profiles(db: Session, user_id: int) -> list[User]:
         db.query(Swipe.to_user_id).filter(Swipe.from_user_id == user_id).subquery()
     )
 
+    Block1 = aliased(UserBlock)
+    Block2 = aliased(UserBlock)
+
     candidates = (
         db.query(User)
+        .outerjoin(
+            Block1, (Block1.blocker_id == user_id) & (Block1.blocked_id == User.user_id)
+        )
+        .outerjoin(
+            Block2, (Block2.blocker_id == User.user_id) & (Block2.blocked_id == user_id)
+        )
         .filter(User.user_id != user_id)
         .filter(User.is_active.is_(True))
         .filter(~User.user_id.in_(swiped_subq))
+        .filter(Block1.id.is_(None))  # not blocked by me
+        .filter(Block2.id.is_(None))  # did not block me
         .all()
     )
 

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
-from typing import Annotated
+from typing import Annotated, Optional
 
 from hang.schemas.swipes import SwipeCreate
 from hang.schemas.conversations import ConversationResponse
@@ -32,14 +32,15 @@ def home_get(
     )
 
 
-@swipe_router.post("/swipe-action")
+@swipe_router.post("/swipe-action", response_model=Optional[ConversationResponse])
 def swipe_post(
     request: Request,
     db: Annotated[Session, Depends(get_db)],
     user: Annotated[User, Depends(get_current_user)],
     swipeData: SwipeCreate,
 ):
-
     conversation = process_swipe(db=db, swipeData=swipeData, user=user)
-    conv_resp = ConversationResponse.model_validate(conversation)
-    return conv_resp
+    if not conversation:
+        return None
+
+    return conversation

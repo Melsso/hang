@@ -1,5 +1,6 @@
 from fastapi import Depends, Request, HTTPException, UploadFile
 from sqlalchemy.orm import Session
+from sqlalchemy import or_, and_
 from sqlalchemy.exc import SQLAlchemyError
 from jose import jwt, JWTError
 
@@ -10,7 +11,7 @@ import logging
 
 from hang.schemas.users import UserResponse, UserCreate
 from hang.schemas.config import settings
-from hang.models.db_models import User, UserImage
+from hang.models.db_models import User, UserImage, UserBlock, UserReport
 
 from hang.core.database import get_db
 from hang.core.storage import StorageService
@@ -168,6 +169,143 @@ def update_profile_info(
     db.refresh(user)
 
     storage.delete_many(keys=keys_to_delete)
+
+
+def get_blocked_users(db: Session, user_id: int) -> list[User]:
+    rows = (
+        db.query(User)
+        .join(UserBlock, User.user_id == UserBlock.blocked_id)
+        .filter(UserBlock.blocker_id == user_id)
+        .all()
+    )
+
+    return rows
+
+
+def block_user(db: Session, blocker_id: int, blocked_id: int) -> bool:
+    if blocker_id == blocked_id:
+        return False
+
+    existing = (
+        db.query(UserBlock)
+        .filter(
+            UserBlock.blocker_id == blocker_id,
+            UserBlock.blocked_id == blocked_id,
+        )
+        .first()
+    )
+
+    if existing:
+        return True
+
+    block = UserBlock(blocker_id=blocker_id, blocked_id=blocked_id)
+
+    db.add(block)
+    db.commit()
+
+    return True
+
+
+def unblock_user(db: Session, blocker_id: int, blocked_id: int) -> bool:
+    block = (
+        db.query(UserBlock)
+        .filter(
+            UserBlock.blocker_id == blocker_id,
+            UserBlock.blocked_id == blocked_id,
+        )
+        .first()
+    )
+
+    if not block:
+        return False
+
+    db.delete(block)
+    db.commit()
+
+    return True
+
+
+def is_blocked(db: Session, user_id: int, target_user_id: int) -> bool:
+    return (
+        db.query(UserBlock)
+        .filter(
+            or_(
+                and_(
+                    UserBlock.blocker_id == user_id,
+                    UserBlock.blocked_id == target_user_id,
+                ),
+                and_(
+                    UserBlock.blocker_id == target_user_id,
+                    UserBlock.blocked_id == user_id,
+                ),
+            )
+        )
+        .first()
+        is not None
+    )
+
+
+def get_user_reports(db: Session, user_id: int) -> list[UserReport]:
+    return (
+        db.query(UserReport)
+        .filter(UserReport.reporter_id == user_id)
+        .order_by(UserReport.created_at.desc())
+        .all()
+    )
+
+
+def report_user(
+    db: Session,
+    reporter_id: int,
+    reported_id: int,
+    reason: str,
+    message: Optional[str],
+) -> bool:
+    if reporter_id == reported_id:
+        return False
+
+    existing = (
+        db.query(UserReport)
+        .filter(
+            UserReport.reporter_id == reporter_id,
+            UserReport.reported_id == reported_id,
+        )
+        .first()
+    )
+
+    if existing:
+        return True
+
+    report = UserReport(
+        reporter_id=reporter_id,
+        reported_id=reported_id,
+        reason=reason,
+        message=message,
+    )
+
+    db.add(report)
+    db.commit()
+
+    return True
+
+
+def delete_report(db: Session, reporter_id: int, reported_id: int) -> bool:
+    report = (
+        db.query(UserReport)
+        .filter(
+            UserReport.reporter_id == reporter_id,
+            UserReport.reported_id == reported_id,
+        )
+        .first()
+    )
+
+    if not report:
+        return False
+
+    db.delete(report)
+    db.commit()
+
+    return True
 
 
 async def inspect_and_collect_files(

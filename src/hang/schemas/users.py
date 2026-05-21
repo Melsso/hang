@@ -1,6 +1,6 @@
 from pydantic import BaseModel, EmailStr, Field, field_validator, ConfigDict
 from datetime import datetime, date
-from typing import List
+from typing import List, Optional
 from enum import Enum
 
 
@@ -109,18 +109,45 @@ class UserSwipeProfile(BaseModel):
 
 class ImageUpdate(BaseModel):
     image_id: int
-    position: int | None = None
+    position: Optional[int] = None
 
 
 class UserUpdate(BaseModel):
-    first_name: str | None = None
-    last_name: str | None = None
-    email: EmailStr | None = None
-    country: str | None = None
-    gender: Gender | None = None
-    bio: str | None = None
-    interested_in: InterestedIn | None = None
-    interests: List[Interests] | None = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    email: Optional[EmailStr] = None
+    country: Optional[str] = None
+    gender: Optional[Gender] = None
+    bio: Optional[str] = None
+    interested_in: Optional[InterestedIn] = None
+    interests: Optional[List[Interests]] = None
 
-    deleted_images: List[int] | None = []
-    images: List[ImageUpdate] | None = []
+    deleted_images: Optional[List[int]] = []
+    images: Optional[List[ImageUpdate]] = []
+
+
+class BlockedUserResponse(BaseModel):
+    user_id: int
+    first_name: str
+    last_name: str
+
+
+class BlockUserCreate(BaseModel):
+    blocked_user_id: int
+
+
+class ReportResponse(BaseModel):
+    reported_user_id: int
+    reason: str
+    message: Optional[str]
+    created_at: datetime
+
+
+class DeleteReportRequest(BaseModel):
+    reported_user_id: int
+
+
+class ReportUserCreate(BaseModel):
+    reported_user_id: int
+    reason: str = Field(..., max_length=100)
+    message: Optional[str] = Field(None, max_length=500)
