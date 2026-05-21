@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, HTTPException
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 from typing import Annotated
@@ -10,20 +10,45 @@ from hang.models.db_models import User
 from hang.core.database import get_db
 from hang.helpers.template_helpers import render, form_to_model
 from hang.helpers.auth import create_access_token, authenticate_user
-from hang.helpers.users import register_user
+from hang.helpers.users import register_user, get_current_user
 
 
 auth_router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 @auth_router.get("/")
-def landing_get(request: Request):
+def landing_get(
+    request: Request,
+    db: Annotated[Session, Depends(get_db)],
+):
+    try:
+        get_current_user(request, db)
+
+        return RedirectResponse(
+            url="/api/swipes/home",
+            status_code=303,
+        )
+
+    except HTTPException:
+        pass
     return render(request=request, template="landing.html")
 
 
 @auth_router.get("/login")
-def login_get(request: Request):
-    # TODO can potentially check token, if active redir to home page isntead
+def login_get(
+    request: Request,
+    db: Annotated[Session, Depends(get_db)],
+):
+    try:
+        get_current_user(request, db)
+
+        return RedirectResponse(
+            url="/api/swipes/home",
+            status_code=303,
+        )
+
+    except HTTPException:
+        pass
     return render(request=request, template="login.html")
 
 
@@ -68,8 +93,20 @@ def logout_post(request: Request):
 
 
 @auth_router.get("/register")
-def register_get(request: Request):
-    # TODO can potentially check token, if active redir to home page isntead
+def register_get(
+    request: Request,
+    db: Annotated[Session, Depends(get_db)],
+):
+    try:
+        get_current_user(request, db)
+
+        return RedirectResponse(
+            url="/api/swipes/home",
+            status_code=303,
+        )
+
+    except HTTPException:
+        pass
     return render(
         request=request,
         template="register.html",
