@@ -6,8 +6,10 @@ from hang.schemas.users import UserUpdate, Interests
 from hang.schemas.config import settings
 from hang.models.db_models import User
 
+from hang.core.database import get_db
+from hang.core.storage import StorageService, get_storage
+
 from hang.helpers.template_helpers import render, form_to_model
-from hang.helpers.database import get_db
 from hang.helpers.users import (
     create_user_resp_data,
     check_email_availability,
@@ -24,9 +26,10 @@ user_router = APIRouter(prefix="/users", tags=["users"])
 def profile_get(
     request: Request,
     user: Annotated[User, Depends(get_current_user)],
+    storage: Annotated[StorageService, Depends(get_storage)],
     edit: bool = False,
 ):
-    user_resp_data = create_user_resp_data(user=user)
+    user_resp_data = create_user_resp_data(user=user, storage=storage)
 
     return render(
         request=request,
@@ -46,6 +49,7 @@ def profile_post(
     request: Request,
     db: Annotated[Session, Depends(get_db)],
     user: Annotated[User, Depends(get_current_user)],
+    storage: Annotated[StorageService, Depends(get_storage)],
     userData: Annotated[UserUpdate, Depends(form_to_model(UserUpdate))],
 ):
     update_data = userData.model_dump(exclude_unset=True)
@@ -56,7 +60,7 @@ def profile_post(
             request=request,
             template="profile.html",
             context={
-                "user": create_user_resp_data(user=user),
+                "user": create_user_resp_data(user=user, storage=storage),
                 "edit_mode": True,
                 "viewer_mode": False,
                 "countries": settings.COUNTRIES,
@@ -65,13 +69,13 @@ def profile_post(
             },
         )
 
-    update_profile_info(db=db, update_data=update_data, user=user)
+    update_profile_info(db=db, update_data=update_data, user=user, storage=storage)
 
     return render(
         request=request,
         template="profile.html",
         context={
-            "user": create_user_resp_data(user=user),
+            "user": create_user_resp_data(user=user, storage=storage),
             "edit_mode": False,
             "viewer_mode": False,
         },
@@ -83,6 +87,7 @@ def visit_profile_get(
     request: Request,
     db: Annotated[Session, Depends(get_db)],
     user: Annotated[User, Depends(get_current_user)],
+    storage: Annotated[StorageService, Depends(get_storage)],
     user_id: int,
 ):
     target_user = db.query(User).filter(User.user_id == user_id).first()
@@ -91,7 +96,7 @@ def visit_profile_get(
         request=request,
         template="profile.html",
         context={
-            "user": create_user_resp_data(user=target_user),
+            "user": create_user_resp_data(user=target_user, storage=storage),
             "edit_mode": False,
             "viewer_mode": True,
         },
@@ -103,6 +108,7 @@ async def profile_image_upload_post(
     request: Request,
     db: Annotated[Session, Depends(get_db)],
     user: Annotated[User, Depends(get_current_user)],
+    storage: Annotated[StorageService, Depends(get_storage)],
     files: list[UploadFile] = File(...),
 ):
     errs, file_payloads = await inspect_and_collect_files(
@@ -113,21 +119,23 @@ async def profile_image_upload_post(
             request=request,
             template="profile.html",
             context={
-                "user": create_user_resp_data(user),
+                "user": create_user_resp_data(user, storage=storage),
                 "edit_mode": False,
                 "viewer_mode": False,
                 "errors": errs,
             },
         )
 
-    errs = process_file_payloads(db=db, file_payloads=file_payloads, user=user)
+    errs = process_file_payloads(
+        db=db, file_payloads=file_payloads, user=user, storage=storage
+    )
 
     fresh_user = db.query(User).filter(User.user_id == user.user_id).first()
     return render(
         request=request,
         template="profile.html",
         context={
-            "user": create_user_resp_data(user=fresh_user),
+            "user": create_user_resp_data(user=fresh_user, storage=storage),
             "edit_mode": False,
             "viewer_mode": False,
             "errors": errs or [],

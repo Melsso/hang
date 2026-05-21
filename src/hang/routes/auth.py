@@ -7,12 +7,16 @@ from hang.schemas.users import Interests, UserCreate, UserLogin
 from hang.schemas.config import settings
 from hang.models.db_models import User
 
+from hang.core.database import get_db
 from hang.helpers.template_helpers import render, form_to_model
 from hang.helpers.auth import register_user, create_access_token, authenticate_user
-from hang.helpers.database import get_db
-
 
 auth_router = APIRouter(prefix="/auth", tags=["auth"])
+
+
+@auth_router.get("/")
+def landing_get(request: Request):
+    return render(request=request, template="landing.html")
 
 
 @auth_router.get("/login")

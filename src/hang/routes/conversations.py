@@ -5,8 +5,10 @@ from typing import Annotated
 from hang.schemas.conversations import MessageListResponse
 from hang.models.db_models import User
 
+from hang.core.database import get_db
+from hang.core.storage import StorageService, get_storage
+
 from hang.helpers.template_helpers import render
-from hang.helpers.database import get_db
 from hang.helpers.users import get_current_user
 from hang.helpers.messages import (
     get_conversation_messages,
@@ -25,8 +27,9 @@ def conversations_get(
     request: Request,
     db: Annotated[Session, Depends(get_db)],
     user: Annotated[User, Depends(get_current_user)],
+    storage: Annotated[StorageService, Depends(get_storage)],
 ):
-    conv_lst = fetch_conversations_list(db=db, user_id=user.user_id)
+    conv_lst = fetch_conversations_list(db=db, user_id=user.user_id, storage=storage)
 
     return render(
         request=request,

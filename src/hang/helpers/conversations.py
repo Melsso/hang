@@ -4,11 +4,11 @@ from typing import Optional
 from hang.schemas.conversations import ConversationPreview
 from hang.models.db_models import User, Conversation, Message
 
-from hang.helpers.storage import build_image_url
+from hang.core.storage import StorageService
 
 
 def fetch_conversations_list(
-    db: Session, user_id: int
+    db: Session, user_id: int, storage: StorageService
 ) -> Optional[list[ConversationPreview]]:
 
     conversations = (
@@ -52,7 +52,7 @@ def fetch_conversations_list(
 
         other_user_img_url = None
         if other_user and other_user.images:
-            other_user_img_url = build_image_url(other_user.images[0].image_key)
+            other_user_img_url = storage.build_image_url(other_user.images[0].image_key)
 
         last_msg_obj = last_message_map.get(c.last_message_id)
 

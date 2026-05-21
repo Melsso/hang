@@ -7,14 +7,17 @@ from jose import jwt, JWTError
 import json
 import time
 import asyncio
+import logging
 
 from hang.schemas.conversations import MessagePreview
 from hang.schemas.config import settings
 from hang.models.db_models import User
 
+from hang.core.database import get_db
 from hang.helpers.messages import send_message_flow, mark_conversation_messages_read
-from hang.helpers.database import get_db
 from hang.helpers.conversations import get_user_conversation
+
+logger = logging.getLogger("Hang")
 
 
 class ConnectionManager:
@@ -50,6 +53,18 @@ class ConnectionManager:
             self.rooms.pop(conversation_id, None)
 
     async def broadcast(self, conversation_id: int, message: dict):
+        logger.info(
+            "hang_event",
+            extra={
+                "event": "ws_broadcast",
+                "status": "success",
+                "context": {
+                    "conversation_id": conversation_id,
+                    "connections": len(self.rooms[conversation_id]),
+                },
+            },
+        )
+
         for ws in list(self.rooms[conversation_id]):
             await ws.send_json(message)
 

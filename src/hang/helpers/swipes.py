@@ -5,7 +5,7 @@ from hang.schemas.swipes import SwipeType, SwipeCreate
 from hang.schemas.users import UserSwipeProfile
 from hang.models.db_models import User, Swipe, Conversation
 
-from hang.helpers.storage import build_image_url
+from hang.core.storage import StorageService
 
 
 def fetch_candidate_profiles(db: Session, user_id: int) -> list[User]:
@@ -41,7 +41,7 @@ def calc_user_score(candidate: User, user: User) -> int:
 
 
 def generate_suggested_profiles(
-    db: Session, user: User
+    db: Session, user: User, storage: StorageService
 ) -> Optional[list[UserSwipeProfile]]:
     profiles: list[UserSwipeProfile] = []
 
@@ -53,7 +53,7 @@ def generate_suggested_profiles(
         profile = UserSwipeProfile.model_validate(candidate).model_dump(mode="json")
 
         for img in profile["images"]:
-            img["image_url"] = build_image_url(img["image_key"])
+            img["image_url"] = storage.build_image_url(img["image_key"])
 
         profile["score"] = calc_user_score(candidate=candidate, user=user)
 

@@ -11,8 +11,8 @@ from hang.schemas.users import UserResponse
 from hang.schemas.config import settings
 from hang.models.db_models import User, UserImage
 
-from hang.helpers.database import get_db
-from hang.helpers.storage import build_image_url, delete_s3_elements, upload_s3_elements
+from hang.core.database import get_db
+from hang.core.storage import StorageService
 
 
 # TODO rework slightly, doesnt need to raise exception, that should be done explicitly in endpoint
@@ -43,11 +43,11 @@ def get_current_user(request: Request, db: Annotated[Session, Depends(get_db)]) 
         raise HTTPException(status_code=401, detail="Invalid or expired token")
 
 
-def create_user_resp_data(user: User) -> dict:
+def create_user_resp_data(user: User, storage: StorageService) -> dict:
     user_resp_data = UserResponse.model_validate(user).model_dump(mode="json")
 
     for img in user_resp_data["images"]:
-        img["image_url"] = build_image_url(img["image_key"])
+        img["image_url"] = storage.build_image_url(img["image_key"])
 
     return user_resp_data
 
@@ -101,7 +101,9 @@ def apply_image_updates(user: User, update_data: dict, db: Session) -> list[str]
     return keys_to_delete
 
 
-def update_profile_info(db: Session, update_data: dict, user: User) -> None:
+def update_profile_info(
+    db: Session, update_data: dict, user: User, storage: StorageService
+) -> None:
     apply_profile_field_updates(user, update_data)
 
     keys_to_delete = apply_image_updates(user, update_data, db)
@@ -109,7 +111,7 @@ def update_profile_info(db: Session, update_data: dict, user: User) -> None:
     db.commit()
     db.refresh(user)
 
-    delete_s3_elements(keys=keys_to_delete)
+    storage.delete_many(keys=keys_to_delete)
 
 
 async def inspect_and_collect_files(
@@ -145,7 +147,10 @@ async def inspect_and_collect_files(
 
 
 def process_file_payloads(
-    db: Session, file_payloads: list[tuple[bytes, str]], user: User
+    db: Session,
+    file_payloads: list[tuple[bytes, str]],
+    user: User,
+    storage: StorageService,
 ) -> Optional[list[str]]:
     next_position = max((img.position for img in user.images), default=-1) + 1
 
@@ -171,7 +176,7 @@ def process_file_payloads(
         next_position += 1
 
     try:
-        upload_s3_elements(files=elements_to_upload)
+        storage.upload_many(files=elements_to_upload)
 
         for img in images_to_add:
             db.add(img)
@@ -181,13 +186,13 @@ def process_file_payloads(
     except SQLAlchemyError:
         db.rollback()
         if uploaded_keys:
-            delete_s3_elements(keys=uploaded_keys)
+            storage.delete_many(keys=uploaded_keys)
 
         return ["Failed to save uploaded images."]
 
     except Exception:
         if uploaded_keys:
-            delete_s3_elements(keys=uploaded_keys)
+            storage.delete_many(keys=uploaded_keys)
 
         return ["Failed to upload images."]
 
