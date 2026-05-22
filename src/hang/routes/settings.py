@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, Request
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from typing import Annotated
 import logging
@@ -8,6 +9,7 @@ from hang.schemas.settings import (
     BlockedUserResponse,
     ReportResponse,
     DeleteReportRequest,
+    PasswordChange,
 )
 from hang.models.db_models import User
 
@@ -22,6 +24,7 @@ from hang.helpers.settings import (
     get_user_reports,
     delete_report,
     delete_user,
+    change_password,
 )
 
 
@@ -60,6 +63,11 @@ def delete_report_post(
         reporter_id=user.user_id,
         reported_id=payload.reported_user_id,
     )
+    if not ok:
+        return JSONResponse(
+            status_code=400,
+            content={"success": False},
+        )
 
     return {"success": ok}
 
@@ -87,8 +95,33 @@ def unblock_post(
         blocker_id=user.user_id,
         blocked_id=payload.blocked_user_id,
     )
+    if not ok:
+        return JSONResponse(
+            status_code=400,
+            content={"success": False},
+        )
 
     return {"success": ok}
+
+
+@settings_router.post("/change-password")
+def change_user_password(
+    request: Request,
+    db: Annotated[Session, Depends(get_db)],
+    user: Annotated[User, Depends(get_current_user)],
+    pass_data: PasswordChange,
+):
+    success, msg = change_password(db=db, user=user, pass_data=pass_data)
+    if not success:
+        return JSONResponse(
+            status_code=400,
+            content={"success": False, "msg": msg},
+        )
+
+    return {
+        "success": True,
+        "msg": msg,
+    }
 
 
 @settings_router.post("/delete-account")
@@ -99,4 +132,9 @@ def delete_user_post(
     storage: Annotated[StorageService, Depends(get_storage)],
 ):
     ok = delete_user(db=db, user=user, storage=storage)
+    if not ok:
+        return JSONResponse(
+            status_code=400,
+            content={"success": False},
+        )
     return {"success": ok}

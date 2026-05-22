@@ -43,6 +43,13 @@
             </button>
         </div>
 
+        <div class="settings-card">
+            <h2>Password Management</h2>
+            <button class="btn secondary" onclick="changePswd()">
+                Change
+            </button>
+        </div>        
+
         <div class="settings-card danger-zone">
             <h2>Account</h2>
             <button class="btn primary" onclick="deleteAccount()">
@@ -153,11 +160,79 @@ async function deleteReport(reportId) {
     loadReports();
 }
 
+async function changePswd() {
+    const restrictPanelDiv = document.getElementById("restrictPanel");
+    const restrictBodyDiv = document.getElementById("restrictBody");
+
+    restrictPanelDiv.classList.remove("hidden");
+    restrictBodyDiv.innerHTML = `
+        <button id="closeRestrict">✕</button>
+        <h2>Password Update</h2>
+
+        <div class="password-row">
+            <label>Old Password</label>
+            <input type="password" id="oldPassword" />
+        </div>
+
+        <div class="password-row">
+            <label>New Password</label>
+            <input type="password" id="newPassword" />
+        </div>
+
+        <div class="password-row">
+            <button id="submitPasswordChange" class="btn primary">
+                Update Password
+            </button>
+        </div>
+
+        <p id="passwordError" style="color: red; font-size: 12px;"></p>
+    `;
+    document.getElementById("closeRestrict").onclick = () => {
+        restrictPanelDiv.classList.add("hidden");
+    };
+
+    const submitBtn = document.getElementById("submitPasswordChange");
+    submitBtn.onclick = async () => {
+        const oldPassword = document.getElementById("oldPassword").value;
+        const newPassword = document.getElementById("newPassword").value;
+        const errorEl = document.getElementById("passwordError");
+
+        errorEl.textContent = "";
+        if (!oldPassword || !newPassword) {
+            errorEl.textContent = "Both fields are required.";
+            return;
+        }
+        try {
+            const res = await fetch("/api/settings/change-password", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    old_password: oldPassword,
+                    new_password: newPassword,
+                }),
+            });
+
+            if (!res.ok) {
+                const data = await res.json().catch(() => ({}));
+                errorEl.textContent = data.msg || "Password update failed.";
+                return;
+            }
+
+            restrictPanelDiv.classList.add("hidden");
+            alert("Password updated successfully");
+        } catch (err) {
+            errorEl.textContent = "Network error.";
+        }
+    };
+}
+
 async function deleteAccount() {
-    await fetch("/api/settings/delete-account", {
+    const res = await fetch("/api/settings/delete-account", {
         method: "POST"
     });
-    window.location.href = "/api/auth/login";
+    if (res.ok) window.location.href = "/api/auth/login";
 }
 
 </script>

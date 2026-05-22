@@ -1,11 +1,15 @@
 from sqlalchemy.orm import Session, selectinload
+from typing import Tuple
+from datetime import datetime, timezone
 
 import logging
 
 from hang.core.storage import StorageService
 
 from hang.models.db_models import User, UserBlock, UserReport
-from hang.schemas.settings import ReportResponse
+from hang.schemas.settings import ReportResponse, PasswordChange
+
+from hang.helpers.auth import verify_password, hash_password
 
 logger = logging.getLogger("Hang")
 
@@ -79,6 +83,25 @@ def get_blocked_users(db: Session, user_id: int) -> list[User]:
     )
 
     return rows
+
+
+def change_password(
+    db: Session, user: User, pass_data: PasswordChange
+) -> Tuple[bool, str]:
+    if not verify_password(pass_data.old_password, user.password):
+        return False, "Wrong password"
+
+    if verify_password(pass_data.new_password, user.password):
+        return False, "New and old password are identical"
+
+    new_hash = hash_password(password=pass_data.new_password)
+    user.password = new_hash
+    user.updated_at = datetime.now(timezone.utc)
+
+    db.add(user)
+    db.commit()
+
+    return True, ""
 
 
 def delete_user(db: Session, user: User, storage: StorageService) -> bool:

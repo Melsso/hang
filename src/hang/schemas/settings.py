@@ -22,5 +22,10 @@ class ReportResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class PasswordChange(BaseModel):
+    old_password: str
+    new_password: str
+
+
 class DeleteReportRequest(BaseModel):
     reported_user_id: int
