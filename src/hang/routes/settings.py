@@ -27,6 +27,14 @@ settings_router = APIRouter(prefix="/settings", tags=["settings"])
 logger = logging.getLogger("Hang")
 
 
+@settings_router.get("/")
+def settings_get(
+    request: Request,
+    user: Annotated[User, Depends(get_current_user)],
+):
+    return render(request=request, template="settings.html")
+
+
 @settings_router.get("/reports")
 def get_reports(
     request: Request,

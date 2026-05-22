@@ -28,7 +28,20 @@
     background:rgba(255,255,255,0.03);
     font-weight:700;
     padding:20px;
-    border-radius:16px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+}
+
+.profile-name {
+    margin:0;
+}
+
+.profile-actions {
+    display:flex;
+    flex-direction:row;
+    align-items:center;
+    gap:5px;
 }
 
 .profile-carousel{
@@ -141,9 +154,9 @@
 }
 
 .profile-card form input,
-.profile-card form select,
 .profile-card form textarea{
     flex:1;
+    min-width:0;
     width:100%;
     padding:8px 10px;
     background:#000;
@@ -153,13 +166,24 @@
     font-size:14px;
 }
 
+.profile-card select{
+    width:100%;
+    padding:10px;
+    background:#000;
+    border:1px solid #333;
+    color:var(--text);
+    border-radius:6px;
+    font-size:14px;
+    outline:none;
+    appearance:none;
+    -webkit-appearance:none;
+    -moz-appearance:none;
+    cursor:pointer;
+}
+
 .profile-card form textarea{
     min-height:80px;
     resize:vertical;
-}
-
-.profile-card .btn {
-    margin-bottom:10px;
 }
 
 .image-upload-actions {

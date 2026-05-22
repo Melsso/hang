@@ -1,4 +1,4 @@
-from fastapi import HTTPException, Request
+from fastapi import HTTPException
 from sqlalchemy.orm import Session, aliased
 from sqlalchemy import or_, and_
 from typing import Optional
@@ -97,10 +97,7 @@ def fetch_conversations_list(
 
 
 def get_user_conversation(
-    db: Session,
-    user_id: int,
-    conversation_id: int,
-    req: Request,
+    db: Session, user_id: int, conversation_id: int
 ) -> Conversation:
     conversation = (
         db.query(Conversation)
@@ -112,7 +109,7 @@ def get_user_conversation(
         raise HTTPException(
             status_code=403,
             detail={
-                "redirect_url": req.headers.get("referer"),
+                "redirect_url": "/api/swipes/home",
                 "reason": "no_conversation_found",
             },
         )
@@ -121,7 +118,7 @@ def get_user_conversation(
         raise HTTPException(
             status_code=403,
             detail={
-                "redirect_url": req.headers.get("referer"),
+                "redirect_url": "/api/swipes/home",
                 "reason": "no_conversation_access",
             },
         )
@@ -153,7 +150,7 @@ def get_user_conversation(
         raise HTTPException(
             status_code=403,
             detail={
-                "redirect_url": req.headers.get("referer"),
+                "redirect_url": "/api/swipes/home",
                 "reason": "user_blocked",
             },
         )

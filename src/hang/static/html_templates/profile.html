@@ -17,37 +17,14 @@
 {% endif %}
 
 <div class="top-actions">
-    {% if edit_mode %}
-
-        <button class="btn primary" type="submit" form="profileForm">
-            Save
-        </button>
-
-        <a class="btn secondary" href="/api/users/profile">
-            Cancel
-        </a>
-
-    {% else %}
-
-        <a class="btn secondary" href="/api/swipes/home">
-            Home
-        </a>
-
-        {% if viewer_mode %}
-            <a class="btn secondary" href="/api/conversations">
-                Messages
-            </a>
-        {% else %}
-            <a class="btn primary" href="/api/users/profile?edit=true">
-                Edit
-            </a>
-        {% endif %}
-
-    {% endif %}
-
+    <button onclick="location.href='/api/swipes/home'">Home</button>
+    <button onclick="location.href='/api/users/profile'">Profile</button>
+    <button onclick="location.href='/api/conversations'">Messages</button>
+    <button onclick="location.href='/api/settings'">Settings</button>    
     <form method="post" action="/api/auth/logout">
-        <button type="submit">Log Out</button>
+        <button type="submit">Logout</button>
     </form>
+
 </div>
 
 <div class="container">
@@ -110,14 +87,27 @@
     </div>
 
     <div class="profile-card">
-
+        
         <div class="profile-name">
-            {{ user.first_name }} {{ user.last_name }}
+            <p>{{ user.first_name }} {{ user.last_name }}</p>
+            <div class="profile-actions">
+                {% if edit_mode %}
+                    <button class="btn primary" type="submit" form="profileForm">
+                        Save
+                    </button>
+                    <button class="btn secondary" onclick="location.href='/api/users/profile'">Cancel</button>
+                    <form id="profileForm" method="post" action="/api/users/profile">
+                {% else %}
+                    {% if not viewer_mode %}
+                        <button class="btn primary" onclick="location.href='/api/users/profile?edit=true'">Edit</button>
+                    {% else %}
+                    PROBABLY REPORT/BLOCK
+                    {% endif %}
+                {% endif %}
+            </div>
+                
         </div>
 
-        {% if edit_mode %}
-            <form id="profileForm" method="post" action="/api/users/profile">
-        {% endif %}
         <div class="profile-section">
             <div class="profile-label">Email</div>
 

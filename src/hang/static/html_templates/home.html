@@ -13,11 +13,12 @@
     <div id="notification-container"></div>
 
     <div class="top-actions">
-        <button id="profileBtn">Profile</button>
-        <button id="messagesBtn">Messages</button>
-
+        <button onclick="location.href='/api/swipes/home'">Home</button>
+        <button onclick="location.href='/api/users/profile'">Profile</button>
+        <button onclick="location.href='/api/conversations'">Messages</button>
+        <button onclick="location.href='/api/settings'">Settings</button>
         <form method="post" action="/api/auth/logout">
-            <button type="submit">Log Out</button>
+            <button type="submit">Logout</button>
         </form>
     </div>
 
@@ -166,14 +167,6 @@ async function swipe(direction){
 document.getElementById("passBtn").onclick = () => swipe("pass");
 document.getElementById("likeBtn").onclick = () => swipe("like");
 document.getElementById("super_likeBtn").onclick = () => swipe("super_like");
-
-document.getElementById("profileBtn").onclick = () => {
-    window.location.href = "/api/users/profile";
-};
-
-document.getElementById("messagesBtn").onclick = () => {
-    window.location.href = "/api/conversations";
-};
 
 document.getElementById("prevImage").onclick = () => {
     const p = profiles[index];

@@ -123,7 +123,7 @@ def visit_profile_get(
             },
         )
 
-    if not verify_conversation(user.user_id, user_id):
+    if not verify_conversation(db, user.user_id, user_id):
         raise HTTPException(
             status_code=403,
             detail={

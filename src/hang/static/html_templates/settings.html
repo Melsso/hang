@@ -7,7 +7,146 @@
 {% endblock %}
 
 {% block content %}
-<div>
-SETTINGS
+
+<div class="top-actions">
+    <button onclick="location.href='/api/swipes/home'">Home</button>
+    <button onclick="location.href='/api/users/profile'">Profile</button>
+    <button onclick="location.href='/api/conversations'">Messages</button>
+    <button onclick="location.href='/api/settings'">Settings</button>    
+    <form method="post" action="/api/auth/logout">
+        <button type="submit">Logout</button>
+    </form>
+
 </div>
+
+<div class="settings-container">
+
+    <div class="settings-header">
+        <h1>Settings</h1>
+    </div>
+
+    <div class="settings-grid">
+
+        <div class="settings-card">
+
+            <h2>Blocked Users</h2>
+
+            <div id="blockedList"></div>
+
+            <button class="btn secondary" onclick="loadBlocked()">
+                Refresh
+            </button>
+
+        </div>
+
+        <div class="settings-card">
+
+            <h2>Reports</h2>
+
+            <div id="reportsList"></div>
+
+            <button class="btn secondary" onclick="loadReports()">
+                Refresh
+            </button>
+
+        </div>
+
+        <div class="settings-card danger-zone">
+
+            <h2>Account</h2>
+
+            <button class="btn danger" onclick="deleteAccount()">
+                Delete Account
+            </button>
+
+        </div>
+
+    </div>
+
+</div>
+
+<script>
+
+async function loadBlocked() {
+    const res = await fetch("/api/settings/blocks");
+    const data = await res.json();
+
+    const container = document.getElementById("blockedList");
+    container.innerHTML = "";
+
+    data.forEach(u => {
+        const row = document.createElement("div");
+        row.className = "settings-row";
+
+        row.innerHTML = `
+            <span>${u.first_name} ${u.last_name}</span>
+            <button class="btn danger" onclick="unblockUser(${u.user_id})">
+                Unblock
+            </button>
+        `;
+
+        container.appendChild(row);
+    });
+}
+
+async function unblockUser(userId) {
+    await fetch("/api/settings/unblock", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ blocked_user_id: userId })
+    });
+
+    loadBlocked();
+}
+
+async function loadReports() {
+    const res = await fetch("/api/settings/reports");
+    const data = await res.json();
+
+    const container = document.getElementById("reportsList");
+    container.innerHTML = "";
+
+    data.forEach(r => {
+        const row = document.createElement("div");
+        row.className = "settings-row";
+
+        row.innerHTML = `
+            <div>
+                <div>User: ${r.reported_id}</div>
+                <div>Reason: ${r.reason}</div>
+            </div>
+
+            <button class="btn danger" onclick="deleteReport(${r.id})">
+                Delete
+            </button>
+        `;
+
+        container.appendChild(row);
+    });
+}
+
+async function deleteReport(reportId) {
+    await fetch("/api/settings/report-delete", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ reported_user_id: reportId })
+    });
+
+    loadReports();
+}
+
+// TODO this one doesnt exist yet
+async function deleteAccount() {
+    await fetch("/api/settings/delete-account", {
+        method: "POST"
+    });
+
+    window.location.href = "/api/auth/login";
+}
+
+loadBlocked();
+loadReports();
+
+</script>
+
 {% endblock %}
