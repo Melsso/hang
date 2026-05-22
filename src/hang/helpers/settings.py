@@ -2,6 +2,8 @@ from sqlalchemy.orm import Session, selectinload
 
 import logging
 
+from hang.core.storage import StorageService
+
 from hang.models.db_models import User, UserBlock, UserReport
 from hang.schemas.settings import ReportResponse
 
@@ -77,3 +79,20 @@ def get_blocked_users(db: Session, user_id: int) -> list[User]:
     )
 
     return rows
+
+
+def delete_user(db: Session, user: User, storage: StorageService) -> bool:
+    img_keys = [img.image_key for img in user.images]
+
+    try:
+        db.delete(user)
+        db.commit()
+
+    except Exception:
+        db.rollback()
+        raise
+
+    if img_keys:
+        storage.delete_many(keys=img_keys)
+
+    return True

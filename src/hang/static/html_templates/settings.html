@@ -153,17 +153,12 @@ async function deleteReport(reportId) {
     loadReports();
 }
 
-// TODO this one doesnt exist yet
 async function deleteAccount() {
     await fetch("/api/settings/delete-account", {
         method: "POST"
     });
-
     window.location.href = "/api/auth/login";
 }
-
-// loadBlocked();
-// loadReports();
 
 </script>
 

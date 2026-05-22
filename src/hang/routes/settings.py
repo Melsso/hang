@@ -12,6 +12,7 @@ from hang.schemas.settings import (
 from hang.models.db_models import User
 
 from hang.core.database import get_db
+from hang.core.storage import StorageService, get_storage
 
 from hang.helpers.template_helpers import render
 from hang.helpers.users import get_current_user
@@ -20,6 +21,7 @@ from hang.helpers.settings import (
     unblock_user,
     get_user_reports,
     delete_report,
+    delete_user,
 )
 
 
@@ -86,4 +88,15 @@ def unblock_post(
         blocked_id=payload.blocked_user_id,
     )
 
+    return {"success": ok}
+
+
+@settings_router.post("/delete-account")
+def delete_user_post(
+    request: Request,
+    db: Annotated[Session, Depends(get_db)],
+    user: Annotated[User, Depends(get_current_user)],
+    storage: Annotated[StorageService, Depends(get_storage)],
+):
+    ok = delete_user(db=db, user=user, storage=storage)
     return {"success": ok}
