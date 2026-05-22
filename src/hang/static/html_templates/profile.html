@@ -92,16 +92,20 @@
             <p>{{ user.first_name }} {{ user.last_name }}</p>
             <div class="profile-actions">
                 {% if edit_mode %}
-                    <button class="btn primary" type="submit" form="profileForm">
-                        Save
-                    </button>
+                    <button class="btn primary" type="submit" form="profileForm">Save</button>
                     <button class="btn secondary" onclick="location.href='/api/users/profile'">Cancel</button>
                     <form id="profileForm" method="post" action="/api/users/profile">
                 {% else %}
                     {% if not viewer_mode %}
                         <button class="btn primary" onclick="location.href='/api/users/profile?edit=true'">Edit</button>
                     {% else %}
-                    PROBABLY REPORT/BLOCK
+                        <button class="btn primary" id="blkBtn">Block</button>
+                        <button class="btn secondary" id="rprtBtn">Report</button>
+                    
+                    <div id="restrictPanel" class="restrict-panel hidden">
+                        <div id="restrictBody"></div>
+                    </div>
+                    
                     {% endif %}
                 {% endif %}
             </div>
@@ -214,6 +218,9 @@
 <script>
 
 const images = {{ user.images | tojson }};
+const user_id = {{ user.user_id | tojson }}
+const viewerMode = {{ viewer_mode | tojson }};
+
 let selected = {{ user.interests | tojson }} || [];
 let currentImageIndex = 0;
 let deletedImages = new Set();
@@ -465,6 +472,94 @@ if (errorBox) {
     }, 5000);
 }
 
+function handleRestrictions() {
+    const blkBtn = document.getElementById("blkBtn");
+    const rprtBtn = document.getElementById("rprtBtn");
+    const restrictBodyDiv = document.getElementById("restrictBody");
+    const restrictPanelDiv = document.getElementById("restrictPanel");
+
+    if (blkBtn) {
+        blkBtn.onclick = () => {
+            restrictPanelDiv.classList.remove("hidden");
+            restrictBodyDiv.innerHTML = `
+                <button id="closeRestrict">✕</button>        
+                <h2>Block User</h2>
+                <p class="restrict-warning">
+                    Are you sure you want to block this user?
+                    You will no longer see each other anywhere in the app.
+                </p>
+                <div class="restrict-actions">
+                    <button id="confirmBlock" class="btn primary">Block</button>
+                </div>
+            `;
+            document.getElementById("closeRestrict").onclick = () => {
+                restrictPanelDiv.classList.add("hidden");
+            };
+
+            const confirmBlockBtn = document.getElementById("confirmBlock");
+            confirmBlockBtn.onclick = async () => {
+                const res = await fetch(
+                    `/api/users/profile/block`,
+                    {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify({
+                            blocked_user_id: user_id,
+                        }),     
+                    }
+                );
+
+                if (res.ok) window.location.href = "/api/swipes/home"; 
+            };
+        };
+    }
+
+    if (rprtBtn) {
+        rprtBtn.onclick = () => {
+            restrictPanelDiv.classList.remove("hidden");
+            restrictBodyDiv.innerHTML = `
+                <button id="closeRestrict">✕</button>        
+                <h2>Report User</h2>
+                <p class="restrict-warning">Reports are reviewed manually.</p>
+                <input id="reportReason" type="text" maxlength="100" placeholder="Reason">
+                <textarea id="reportMessage" class="restrict-textarea" maxlength="500" placeholder="Additional details..."></textarea>
+                <div class="restrict-actions">
+                    <button id="confirmReport" class="btn primary">Submit Report</button>
+                </div>
+            `;
+            document.getElementById("closeRestrict").onclick = () => {
+                restrictPanelDiv.classList.add("hidden");
+            };
+
+            const confirmReportBtn = document.getElementById("confirmReport");
+            confirmReportBtn.onclick = async () => {
+                const reason = document.getElementById("reportReason").value;
+                const message = document.getElementById("reportMessage").value;
+                const res = await fetch(
+                    `/api/users/profile/report-create`,
+                    {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify({
+                            reported_user_id: user_id,
+                            reason: reason,
+                            message: message || null,
+                        }),
+                    }
+                );
+                if (res.ok) restrictPanelDiv.classList.add("hidden");
+            };
+        };
+    }
+}
+
+if (viewerMode) {
+    handleRestrictions();
+}
 </script>
 
 {% endblock %}

@@ -230,3 +230,64 @@
 .image-tile.selected .delete-overlay{
     display:block;
 }
+
+
+.restrict-panel{
+    position:fixed;
+    inset:0;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    background:rgba(0,0,0,0.8);
+    z-index:99999;
+}
+
+.restrict-panel.hidden{
+    display:none;
+}
+
+#restrictBody{
+    position:relative;
+    width:min(420px, 90vw);
+    background:var(--panel);
+    border-radius:16px;
+    padding:28px;
+    display:flex;
+    flex-direction:column;
+    gap:18px;
+    box-shadow:0 0 40px rgba(0,0,0,0.45);
+}
+
+#restrictBody h2{
+    margin:0;
+    font-size:24px;
+    font-weight:700;
+    text-align:center;
+}
+
+.restrict-warning{
+    margin:0;
+    font-size:14px;
+    line-height:1.5;
+    color:var(--muted);
+    text-align:center;
+}
+
+.restrict-actions{
+    display:flex;
+    justify-content:center;
+}
+
+#closeRestrict{
+    position:absolute;
+    top:12px;
+    right:12px;
+    width:36px;
+    height:36px;
+    border:none;
+    border-radius:50%;
+    background:rgba(255,255,255,0.08);
+    color:white;
+    cursor:pointer;
+    z-index:100000;
+}
