@@ -1,9 +1,9 @@
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 import logging
 
 from hang.models.db_models import User, UserBlock, UserReport
-
+from hang.schemas.settings import ReportResponse
 
 logger = logging.getLogger("Hang")
 
@@ -27,13 +27,26 @@ def unblock_user(db: Session, blocker_id: int, blocked_id: int) -> bool:
     return True
 
 
-def get_user_reports(db: Session, user_id: int) -> list[UserReport]:
-    return (
+def get_user_reports(db: Session, user_id: int) -> list[ReportResponse]:
+    reports = (
         db.query(UserReport)
+        .options(selectinload(UserReport.reported))
         .filter(UserReport.reporter_id == user_id)
         .order_by(UserReport.created_at.desc())
         .all()
     )
+
+    return [
+        ReportResponse(
+            first_name=r.reported.first_name,
+            last_name=r.reported.last_name,
+            reported_id=r.reported_id,
+            reason=r.reason,
+            message=r.message,
+            created_at=r.created_at,
+        )
+        for r in reports
+    ]
 
 
 def delete_report(db: Session, reporter_id: int, reported_id: int) -> bool:

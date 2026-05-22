@@ -1,11 +1,9 @@
 .settings-container {
-    max-width:1000px;
-    margin:0 auto;
-    padding:40px 20px;
-}
-
-.settings-header {
-    margin-bottom:30px;
+    padding:20px 20px;
+    width:min(420px, 35vw);
+    height:70vh;
+    align-items:center;
+    box-sizing:border-box;
 }
 
 .settings-header h1 {
@@ -15,14 +13,25 @@
 
 .settings-grid {
     display:grid;
-    grid-template-columns:repeat(auto-fit, minmax(320px, 1fr));
-    gap:20px;
+    gap:16px;
+    padding:20px 20px;
+    width:min(420px, 35vw);
+    height:70vh;
+    align-items:center;
+    background:var(--panel);
+    border-radius:16px;
+    border:1px solid rgba(255,255,255,0.08);
+    box-sizing:border-box;
+    overflow-y:auto;
 }
 
 .settings-card {
     background:#1e1e1e;
     border-radius:12px;
     padding:20px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
 }
 
 .settings-card h2 {
@@ -48,15 +57,70 @@
     color:#ddd;
 }
 
-.btn.danger {
-    background:#b00020;
-    color:#fff;
-}
-
-.btn.danger:hover {
-    background:#d0002a;
-}
-
 .danger-zone {
     border:1px solid rgba(176, 0, 32, 0.4);
+}
+
+.restrict-panel{
+    position:fixed;
+    inset:0;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    background:rgba(0,0,0,0.8);
+    z-index:99999;
+}
+
+.restrict-panel.hidden{
+    display:none;
+}
+
+#restrictBody{
+    position:relative;
+    width:min(420px, 90vw);
+    background:var(--panel);
+    border-radius:16px;
+    padding:28px;
+    display:flex;
+    flex-direction:column;
+    gap:18px;
+    box-shadow:0 0 40px rgba(0,0,0,0.45);
+    overflow-y:auto;
+}
+
+#restrictBody h2{
+    margin:0;
+    font-size:24px;
+    font-weight:700;
+    text-align:center;
+}
+
+#closeRestrict{
+    position:absolute;
+    top:12px;
+    right:12px;
+    width:36px;
+    height:36px;
+    border:none;
+    border-radius:50%;
+    background:rgba(255,255,255,0.08);
+    color:white;
+    cursor:pointer;
+    z-index:100000;
+}
+
+.settings-empty {
+    text-align:center;
+    font-size:13px;
+    color:rgba(255,255,255,0.5);
+    padding:20px 0;
+}
+
+.report-reason {
+    font-size:12px;
+    color:rgba(255,255,255,0.6);
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    display:inline-block;
 }

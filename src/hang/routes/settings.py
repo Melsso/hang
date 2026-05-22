@@ -35,7 +35,7 @@ def settings_get(
     return render(request=request, template="settings.html")
 
 
-@settings_router.get("/reports")
+@settings_router.get("/reports", response_model=list[ReportResponse])
 def get_reports(
     request: Request,
     db: Annotated[Session, Depends(get_db)],
@@ -43,10 +43,7 @@ def get_reports(
 ):
     reports = get_user_reports(db=db, user_id=user.user_id)
 
-    report_resp = [ReportResponse.model_validate(r).model_dump() for r in reports]
-    return render(
-        request=request, template="settings.html", context={"reports": report_resp}
-    )
+    return reports
 
 
 @settings_router.post("/report-delete")
@@ -65,7 +62,7 @@ def delete_report_post(
     return {"success": ok}
 
 
-@settings_router.get("/blocks")
+@settings_router.get("/blocks", response_model=list[BlockedUserResponse])
 def blocked_lst_get(
     request: Request,
     db: Annotated[Session, Depends(get_db)],
@@ -73,14 +70,7 @@ def blocked_lst_get(
 ):
     blocked = get_blocked_users(db=db, user_id=user.user_id)
 
-    blocked_users_resp = [
-        BlockedUserResponse.model_validate(u).model_dump() for u in blocked
-    ]
-    return render(
-        request=request,
-        template="settings.html",
-        context={"blocks": blocked_users_resp},
-    )
+    return blocked
 
 
 @settings_router.post("/unblock")

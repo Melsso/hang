@@ -8,57 +8,46 @@
 
 {% block content %}
 
-<div class="top-actions">
-    <button onclick="location.href='/api/swipes/home'">Home</button>
-    <button onclick="location.href='/api/users/profile'">Profile</button>
-    <button onclick="location.href='/api/conversations'">Messages</button>
-    <button onclick="location.href='/api/settings'">Settings</button>    
-    <form method="post" action="/api/auth/logout">
-        <button type="submit">Logout</button>
-    </form>
-
-</div>
-
-<div class="settings-container">
-
-    <div class="settings-header">
-        <h1>Settings</h1>
+<div class="app-container">
+    <div class="top-actions">
+        <button onclick="location.href='/api/swipes/home'">Home</button>
+        <button onclick="location.href='/api/users/profile'">Profile</button>
+        <button onclick="location.href='/api/conversations'">Messages</button>
+        <button onclick="location.href='/api/settings'">Settings</button>    
+        <form method="post" action="/api/auth/logout">
+            <button type="submit">Logout</button>
+        </form>
+    
+    </div>
+    
+    <div id="restrictPanel" class="restrict-panel hidden">
+        <div id="restrictBody"></div>
     </div>
 
     <div class="settings-grid">
-
-        <div class="settings-card">
-
-            <h2>Blocked Users</h2>
-
-            <div id="blockedList"></div>
-
-            <button class="btn secondary" onclick="loadBlocked()">
-                Refresh
-            </button>
-
+        <div class="settings-header">
+            <h1>Settings</h1>
         </div>
 
         <div class="settings-card">
-
-            <h2>Reports</h2>
-
-            <div id="reportsList"></div>
-
-            <button class="btn secondary" onclick="loadReports()">
-                Refresh
+            <h2>Blocked Users</h2>
+            <button class="btn secondary" onclick="loadBlocked()">
+                Show
             </button>
+        </div>
 
+        <div class="settings-card">
+            <h2>Reports</h2>
+            <button class="btn secondary" onclick="loadReports()">
+                Show
+            </button>
         </div>
 
         <div class="settings-card danger-zone">
-
             <h2>Account</h2>
-
-            <button class="btn danger" onclick="deleteAccount()">
+            <button class="btn primary" onclick="deleteAccount()">
                 Delete Account
             </button>
-
         </div>
 
     </div>
@@ -69,23 +58,39 @@
 
 async function loadBlocked() {
     const res = await fetch("/api/settings/blocks");
-    const data = await res.json();
+    const blocks = await res.json();
 
-    const container = document.getElementById("blockedList");
-    container.innerHTML = "";
+    const restrictPanelDiv = document.getElementById("restrictPanel");
+    restrictPanelDiv.classList.remove("hidden");
 
-    data.forEach(u => {
+    const restrictBodyDiv = document.getElementById("restrictBody");
+    restrictBodyDiv.innerHTML = `
+        <button id="closeRestrict">✕</button>
+        <h2>Blocked Users</h2>
+    `;
+
+    document.getElementById("closeRestrict").onclick = () => {
+        restrictPanelDiv.classList.add("hidden");
+    };
+
+    if (!blocks || blocks.length === 0) {
+        const empty = document.createElement("div");
+        empty.className = "settings-empty";
+        empty.innerText = "No blocked users";
+        restrictBodyDiv.appendChild(empty);
+        return;
+    }
+
+    blocks.forEach(u => {
         const row = document.createElement("div");
         row.className = "settings-row";
-
         row.innerHTML = `
             <span>${u.first_name} ${u.last_name}</span>
-            <button class="btn danger" onclick="unblockUser(${u.user_id})">
+            <button class="btn primary" onclick="unblockUser(${u.user_id})">
                 Unblock
             </button>
         `;
-
-        container.appendChild(row);
+        restrictBodyDiv.appendChild(row);
     });
 }
 
@@ -101,27 +106,40 @@ async function unblockUser(userId) {
 
 async function loadReports() {
     const res = await fetch("/api/settings/reports");
-    const data = await res.json();
+    const reports = await res.json();
 
-    const container = document.getElementById("reportsList");
-    container.innerHTML = "";
+    const restrictPanelDiv = document.getElementById("restrictPanel");
+    restrictPanelDiv.classList.remove("hidden");
 
-    data.forEach(r => {
+    const restrictBodyDiv = document.getElementById("restrictBody");
+    restrictBodyDiv.innerHTML = `
+        <button id="closeRestrict">✕</button>
+        <h2>Reports List</h2>
+    `;
+
+    document.getElementById("closeRestrict").onclick = () => {
+        restrictPanelDiv.classList.add("hidden");
+    };
+
+    if (!reports || reports.length === 0) {
+        const empty = document.createElement("div");
+        empty.className = "settings-empty";
+        empty.innerText = "No reports found";
+        restrictBodyDiv.appendChild(empty);
+        return;
+    }
+
+    reports.forEach(r => {
         const row = document.createElement("div");
         row.className = "settings-row";
-
         row.innerHTML = `
-            <div>
-                <div>User: ${r.reported_id}</div>
-                <div>Reason: ${r.reason}</div>
+            <div class="report-meta">
+                <span class="report-name">${r.first_name} ${r.last_name} | </span>
+                <span class="report-reason">${r.reason}</span>
             </div>
-
-            <button class="btn danger" onclick="deleteReport(${r.id})">
-                Delete
-            </button>
+            <button class="btn primary" onclick="deleteReport(${r.reported_id})">Unreport</button>
         `;
-
-        container.appendChild(row);
+        restrictBodyDiv.appendChild(row);
     });
 }
 
@@ -144,8 +162,8 @@ async function deleteAccount() {
     window.location.href = "/api/auth/login";
 }
 
-loadBlocked();
-loadReports();
+// loadBlocked();
+// loadReports();
 
 </script>
 

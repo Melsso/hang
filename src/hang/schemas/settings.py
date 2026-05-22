@@ -12,6 +12,8 @@ class BlockedUserResponse(BaseModel):
 
 
 class ReportResponse(BaseModel):
+    first_name: str
+    last_name: str
     reported_id: int
     reason: str
     message: Optional[str]
