@@ -88,6 +88,12 @@ def get_blocked_users(db: Session, user_id: int) -> list[User]:
 def change_password(
     db: Session, user: User, pass_data: PasswordChange
 ) -> Tuple[bool, str]:
+    if user.auth_provider != "local":
+        return False, "Google users cannot change password"
+
+    if not user.password_hash:
+        return False, "No password set"
+
     if not verify_password(pass_data.old_password, user.password):
         return False, "Wrong password"
 

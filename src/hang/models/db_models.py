@@ -28,12 +28,17 @@ class User(Base):
     first_name: Mapped[str] = mapped_column(String(50))
     last_name: Mapped[str] = mapped_column(String(50))
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
-    password: Mapped[str] = mapped_column(String(255))
+    password: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
+    auth_provider: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="local"
+    )
+    oauth_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     country: Mapped[str] = mapped_column(String(2), default="DE")
-    birthdate: Mapped[date] = mapped_column(Date)
+    birthdate: Mapped[date | None] = mapped_column(Date, nullable=True)
 
-    bio: Mapped[str] = mapped_column(String(500))
+    bio: Mapped[str] = mapped_column(String(500), default="")
 
     gender: Mapped[Gender] = mapped_column(Enum(Gender))
     interested_in: Mapped[InterestedIn] = mapped_column(Enum(InterestedIn))

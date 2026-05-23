@@ -29,6 +29,10 @@ class Settings(BaseSettings):
     R2_BUCKET_NAME: str
     R2_ENDPOINT: str
 
+    GOOGLE_CLIENT_ID: str
+    GOOGLE_CLIENT_SECRET: str
+    GOOGLE_REDIRECT_URI: str
+
     COUNTRIES: List[Dict[str, str]] = [
         {"code": c.alpha_2, "name": c.name} for c in pycountry.countries
     ]

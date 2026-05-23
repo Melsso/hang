@@ -8,8 +8,13 @@ from hang.schemas.config import conf
 from hang.models.db_models import User
 
 from hang.core.database import get_db
+from hang.core.oauth import oauth_serv
 from hang.helpers.template_helpers import render, form_to_model
-from hang.helpers.auth import create_access_token, authenticate_user
+from hang.helpers.auth import (
+    create_access_token,
+    authenticate_user_local,
+    authenticate_user_google,
+)
 from hang.helpers.users import register_user, get_current_user
 
 
@@ -52,13 +57,54 @@ def login_get(
     return render(request=request, template="login.html")
 
 
+@auth_router.get("/login/google")
+async def login_get_google(
+    request: Request,
+):
+    redirect_uri = conf.GOOGLE_REDIRECT_URI
+    return await oauth_serv.google.authorize_redirect(request, redirect_uri)
+
+
+@auth_router.get("/login/google/callback")
+async def login_get_google_callback(
+    request: Request,
+    db: Annotated[Session, Depends(get_db)],
+):
+    token = await oauth_serv.google.authorize_access_token(request)
+
+    user_info = token.get("userinfo")
+    if not user_info:
+        user_info = await oauth_serv.google.parse_id_token(request, token)
+
+    user = authenticate_user_google(db=db, google_user_info=user_info)
+    if not user:
+        return render(
+            request=request,
+            template="login.html",
+            context={"errors": ["Something went wrong, please try again later."]},
+        )
+
+    token = create_access_token({"sub": str(user.user_id), "email": user.email})
+    # TODO check user data, if new user need to force into page to fill out further info
+    response = RedirectResponse(url="/api/swipes/home")
+    response.set_cookie(
+        key="access_token",
+        value=token,
+        httponly=True,
+        secure=False,
+        samesite="lax",
+    )
+
+    return response
+
+
 @auth_router.post("/login")
 def login_post(
     request: Request,
     db: Annotated[Session, Depends(get_db)],
     userData: Annotated[UserLogin, Depends(form_to_model(UserLogin))],
 ):
-    user = authenticate_user(db, userData.email.lower(), userData.password)
+    user = authenticate_user_local(db, userData.email.lower(), userData.password)
 
     if not user:
         return render(

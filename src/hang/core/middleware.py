@@ -1,13 +1,21 @@
+from starlette.middleware.sessions import SessionMiddleware
+from fastapi import Request
+
 import time
 import uuid
 import logging
-from fastapi import Request
+
+from hang.schemas.config import conf
 
 
 logger = logging.getLogger("Hang")
 
 
 def register_middleware(app):
+    app.add_middleware(
+        SessionMiddleware,
+        secret_key=conf.SECRET_KEY,
+    )
 
     @app.middleware("http")
     async def log_requests(request: Request, call_next):
