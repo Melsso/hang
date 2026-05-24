@@ -13,8 +13,10 @@ from hang.schemas.conversations import MessagePreview
 from hang.schemas.config import conf
 from hang.models.db_models import User
 
+from hang.core.redis import redis_client
 from hang.helpers.messages import send_message_flow, mark_conversation_messages_read
 from hang.helpers.conversations import get_user_conversation
+
 
 logger = logging.getLogger("Hang")
 
@@ -136,7 +138,7 @@ async def handle_ws_message(
         if not conversation_id:
             return
 
-        await manager.broadcast(
+        await publish_event(
             conversation_id,
             {
                 "type": "typing",
@@ -158,7 +160,7 @@ async def handle_ws_message(
             conversation_id=conversation_id,
             user_id=user_id,
         )
-        await manager.broadcast(
+        await publish_event(
             conversation_id,
             {
                 "type": "read",
@@ -196,7 +198,7 @@ async def handle_ws_message(
         "conversation_id": conversation.conversation_id,
     }
 
-    await manager.broadcast(
+    await publish_event(
         conversation_id,
         {
             "type": "message",
@@ -228,3 +230,33 @@ def get_current_user_ws(ws: WebSocket, db: Session) -> User:
 
     except JWTError:
         raise WebSocketDisconnect(code=1008)
+
+
+async def publish_event(conversation_id: int, payload: dict):
+    channel = f"conversation:{conversation_id}"
+
+    await redis_client.publish(
+        channel,
+        json.dumps(payload),
+    )
+
+
+async def redis_subscriber():
+    pubsub = redis_client.pubsub()
+
+    await pubsub.psubscribe("conversation:*")
+
+    async for message in pubsub.listen():
+        if message["type"] not in ("message", "pmessage"):
+            continue
+
+        try:
+            channel = message["channel"]
+            data = json.loads(message["data"])
+
+            conversation_id = int(channel.split(":")[1])
+
+            await manager.broadcast(conversation_id, data)
+
+        except Exception:
+            continue

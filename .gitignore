@@ -18,6 +18,7 @@ inject_data.py
 
 resources/
 images/
+dev_utils/
 
 .vscode/
 .idea/

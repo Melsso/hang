@@ -13,6 +13,9 @@ class Settings(BaseSettings):
     DB_HOST: str
     DB_PORT: int = 5432
 
+    REDIS_HOST: str
+    REDIS_PORT: int = 6379
+
     DEBUG: bool = False
     SECRET_KEY: str
     ALGORITHM: str
