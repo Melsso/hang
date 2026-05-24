@@ -156,6 +156,10 @@ def apply_image_updates(user: User, update_data: dict, db: Session) -> list[str]
     return keys_to_delete
 
 
+def is_profile_incomplete(user: User) -> bool:
+    return not user.bio or not user.birthdate or not user.interests or not user.images
+
+
 def update_profile_info(
     db: Session, update_data: dict, user: User, storage: StorageService
 ) -> None:

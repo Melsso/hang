@@ -1,5 +1,8 @@
 from starlette.middleware.sessions import SessionMiddleware
 from fastapi import Request
+from slowapi.util import get_remote_address
+from slowapi.middleware import SlowAPIMiddleware
+from slowapi import Limiter
 
 import time
 import uuid
@@ -9,9 +12,13 @@ from hang.schemas.config import conf
 
 
 logger = logging.getLogger("Hang")
+limiter = Limiter(key_func=get_remote_address)
 
 
 def register_middleware(app):
+    app.state.limiter = limiter
+    app.add_middleware(SlowAPIMiddleware)
+
     app.add_middleware(
         SessionMiddleware,
         secret_key=conf.SECRET_KEY,

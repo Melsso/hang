@@ -9,6 +9,7 @@ from hang.models.db_models import User
 
 from hang.core.database import get_db
 from hang.core.oauth import oauth_serv
+from hang.core.middleware import limiter
 from hang.helpers.template_helpers import render, form_to_model
 from hang.helpers.auth import (
     create_access_token,
@@ -22,6 +23,7 @@ auth_router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 @auth_router.get("/")
+@limiter.limit("5/minute")
 def landing_get(
     request: Request,
     db: Annotated[Session, Depends(get_db)],
@@ -40,6 +42,7 @@ def landing_get(
 
 
 @auth_router.get("/login")
+@limiter.limit("5/minute")
 def login_get(
     request: Request,
     db: Annotated[Session, Depends(get_db)],
@@ -58,6 +61,7 @@ def login_get(
 
 
 @auth_router.get("/login/google")
+@limiter.limit("5/minute")
 async def login_get_google(
     request: Request,
 ):
@@ -66,6 +70,7 @@ async def login_get_google(
 
 
 @auth_router.get("/login/google/callback")
+@limiter.limit("5/minute")
 async def login_get_google_callback(
     request: Request,
     db: Annotated[Session, Depends(get_db)],
@@ -85,7 +90,6 @@ async def login_get_google_callback(
         )
 
     token = create_access_token({"sub": str(user.user_id), "email": user.email})
-    # TODO check user data, if new user need to force into page to fill out further info
     response = RedirectResponse(url="/api/swipes/home")
     response.set_cookie(
         key="access_token",
@@ -99,6 +103,7 @@ async def login_get_google_callback(
 
 
 @auth_router.post("/login")
+@limiter.limit("5/minute")
 def login_post(
     request: Request,
     db: Annotated[Session, Depends(get_db)],
@@ -130,6 +135,7 @@ def login_post(
 
 
 @auth_router.post("/logout")
+@limiter.limit("5/minute")
 def logout_post(request: Request):
     response = RedirectResponse(url="/api/auth/login", status_code=303)
 
@@ -139,6 +145,7 @@ def logout_post(request: Request):
 
 
 @auth_router.get("/register")
+@limiter.limit("5/minute")
 def register_get(
     request: Request,
     db: Annotated[Session, Depends(get_db)],
@@ -161,6 +168,7 @@ def register_get(
 
 
 @auth_router.post("/register")
+@limiter.limit("5/minute")
 def register_post(
     request: Request,
     db: Annotated[Session, Depends(get_db)],

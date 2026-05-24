@@ -1,4 +1,6 @@
 import logging
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
 from fastapi import Request, HTTPException
 from fastapi.exceptions import RequestValidationError
@@ -10,6 +12,8 @@ logger = logging.getLogger("Hang")
 
 
 def register_exception_handlers(app):
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
     @app.exception_handler(HTTPException)
     async def http_exception_handler(request: Request, exc: HTTPException):
         logger.warning(

@@ -6,6 +6,7 @@ from hang.schemas.conversations import MessageListResponse
 from hang.models.db_models import User
 
 from hang.core.database import get_db
+from hang.core.middleware import limiter
 from hang.core.storage import StorageService, get_storage
 
 from hang.helpers.template_helpers import render
@@ -23,6 +24,7 @@ conversation_router = APIRouter(prefix="/conversations", tags=["conversations"])
 
 
 @conversation_router.get("")
+@limiter.limit("5/minute")
 def conversations_get(
     request: Request,
     db: Annotated[Session, Depends(get_db)],
@@ -39,6 +41,7 @@ def conversations_get(
 
 
 @conversation_router.get("/{conversation_id}/messages")
+@limiter.limit("7/minute")
 def messages_by_conv_id_get(
     request: Request,
     db: Annotated[Session, Depends(get_db)],

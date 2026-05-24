@@ -15,6 +15,7 @@ from hang.models.db_models import User
 
 from hang.core.database import get_db
 from hang.core.storage import StorageService, get_storage
+from hang.core.middleware import limiter
 
 from hang.helpers.template_helpers import render
 from hang.helpers.users import get_current_user
@@ -33,6 +34,7 @@ logger = logging.getLogger("Hang")
 
 
 @settings_router.get("/")
+@limiter.limit("5/minute")
 def settings_get(
     request: Request,
     user: Annotated[User, Depends(get_current_user)],
@@ -41,6 +43,7 @@ def settings_get(
 
 
 @settings_router.get("/reports", response_model=list[ReportResponse])
+@limiter.limit("5/minute")
 def get_reports(
     request: Request,
     db: Annotated[Session, Depends(get_db)],
@@ -52,6 +55,7 @@ def get_reports(
 
 
 @settings_router.post("/report-delete")
+@limiter.limit("5/minute")
 def delete_report_post(
     request: Request,
     db: Annotated[Session, Depends(get_db)],
@@ -73,6 +77,7 @@ def delete_report_post(
 
 
 @settings_router.get("/blocks", response_model=list[BlockedUserResponse])
+@limiter.limit("5/minute")
 def blocked_lst_get(
     request: Request,
     db: Annotated[Session, Depends(get_db)],
@@ -84,6 +89,7 @@ def blocked_lst_get(
 
 
 @settings_router.post("/unblock")
+@limiter.limit("5/minute")
 def unblock_post(
     request: Request,
     db: Annotated[Session, Depends(get_db)],
@@ -105,6 +111,7 @@ def unblock_post(
 
 
 @settings_router.post("/change-password")
+@limiter.limit("5/minute")
 def change_user_password(
     request: Request,
     db: Annotated[Session, Depends(get_db)],
@@ -125,6 +132,7 @@ def change_user_password(
 
 
 @settings_router.post("/delete-account")
+@limiter.limit("1/minute")
 def delete_user_post(
     request: Request,
     db: Annotated[Session, Depends(get_db)],

@@ -14,6 +14,7 @@ from hang.models.db_models import User
 
 from hang.core.database import get_db
 from hang.core.storage import StorageService, get_storage
+from hang.core.middleware import limiter
 
 from hang.helpers.template_helpers import render, form_to_model
 from hang.helpers.conversations import verify_conversation
@@ -35,11 +36,13 @@ logger = logging.getLogger("Hang")
 
 
 @user_router.get("/profile")
+@limiter.limit("5/minute")
 def profile_get(
     request: Request,
     user: Annotated[User, Depends(get_current_user)],
     storage: Annotated[StorageService, Depends(get_storage)],
     edit: bool = False,
+    onboarding: bool | None = None,
 ):
     user_resp_data = create_user_resp_data(user=user, storage=storage)
 
@@ -52,11 +55,13 @@ def profile_get(
             "viewer_mode": False,
             "countries": conf.COUNTRIES,
             "interests": Interests,
+            "errors": [] if onboarding is None else ["Please complete your profile!"],
         },
     )
 
 
 @user_router.post("/profile")
+@limiter.limit("5/minute")
 def profile_post(
     request: Request,
     db: Annotated[Session, Depends(get_db)],
@@ -107,6 +112,7 @@ def profile_post(
 
 
 @user_router.get("/profile/{user_id}")
+@limiter.limit("5/minute")
 def visit_profile_get(
     request: Request,
     db: Annotated[Session, Depends(get_db)],
@@ -146,6 +152,7 @@ def visit_profile_get(
 
 
 @user_router.post("/profile/report-create")
+@limiter.limit("5/minute")
 def report_post(
     request: Request,
     db: Annotated[Session, Depends(get_db)],
@@ -164,6 +171,7 @@ def report_post(
 
 
 @user_router.post("/profile/block")
+@limiter.limit("5/minute")
 def block_post(
     request: Request,
     db: Annotated[Session, Depends(get_db)],
@@ -191,6 +199,7 @@ def block_post(
 
 
 @user_router.post("/profile/upload-image")
+@limiter.limit("5/minute")
 async def profile_image_upload_post(
     request: Request,
     db: Annotated[Session, Depends(get_db)],

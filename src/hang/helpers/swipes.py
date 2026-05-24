@@ -8,7 +8,7 @@ from hang.schemas.users import UserSwipeProfile
 from hang.models.db_models import User, Swipe, Conversation, UserBlock
 
 from hang.core.storage import StorageService
-
+from hang.helpers.users import is_profile_incomplete
 
 logger = logging.getLogger("Hang")
 
@@ -66,6 +66,9 @@ def generate_suggested_profiles(
         return []
 
     for candidate in candidates:
+        if is_profile_incomplete(user=candidate):
+            continue
+
         profile = UserSwipeProfile.model_validate(candidate).model_dump(mode="json")
 
         for img in profile["images"]:
