@@ -44,7 +44,12 @@ def profile_get(
     edit: bool = False,
     onboarding: bool | None = None,
 ):
-    user_resp_data = create_user_resp_data(user=user, storage=storage)
+    if onboarding is None:
+        onboarding = False
+
+    user_resp_data = create_user_resp_data(
+        user=user, storage=storage, onboarding=onboarding
+    )
 
     return render(
         request=request,
@@ -53,9 +58,10 @@ def profile_get(
             "user": user_resp_data,
             "edit_mode": edit,
             "viewer_mode": False,
+            "onboarding": onboarding,
             "countries": conf.COUNTRIES,
             "interests": Interests,
-            "errors": [] if onboarding is None else ["Please complete your profile!"],
+            "errors": [] if not onboarding else ["Please complete your profile!"],
         },
     )
 

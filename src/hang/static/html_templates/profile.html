@@ -116,7 +116,11 @@
             <div class="profile-label">Email</div>
 
             {% if edit_mode %}
-                <input type="email" name="email" value="{{ user.email }}">
+                {% if onboarding is defined %}
+                    <input type="date" name="birthdate" value="{{ user.birthdate if user.birthdate is not none else '' }}" required>
+                {% else %}
+                    <input type="email" name="email" value="{{ user.email }}">
+                {% endif %}
             {% else %}
                 <div class="profile-value">{{ user.email }}</div>
             {% endif %}
@@ -216,7 +220,8 @@
 </div>
 
 <script>
-
+// TODO add birthdy field only if onboarding
+// TODO think about email, remove? only keep for local users? 
 const images = {{ user.images | tojson }};
 const user_id = {{ user.user_id | tojson }}
 const viewerMode = {{ viewer_mode | tojson }};
@@ -275,6 +280,9 @@ function getDragAfterElement(container, y) {
             return closest;
         }
     }, { offset: Number.NEGATIVE_INFINITY }).element;
+}
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 function syncInputs() {

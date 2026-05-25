@@ -40,7 +40,7 @@ def authenticate_user_local(db: Session, email: str, password: str) -> Optional[
     if user.auth_provider != "local":
         return None
 
-    if not user.password_hash:
+    if not user.password:
         return None
 
     if not verify_password(password, user.password):

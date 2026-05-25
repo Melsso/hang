@@ -91,7 +91,7 @@ def change_password(
     if user.auth_provider != "local":
         return False, "Google users cannot change password"
 
-    if not user.password_hash:
+    if not user.password:
         return False, "No password set"
 
     if not verify_password(pass_data.old_password, user.password):

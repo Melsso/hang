@@ -9,7 +9,7 @@ from uuid import uuid4
 import imghdr
 import logging
 
-from hang.schemas.users import UserResponse, UserCreate
+from hang.schemas.users import UserResponse, UserCreate, UserOnboardResponse
 from hang.schemas.config import conf
 from hang.models.db_models import User, UserImage, UserBlock, UserReport
 
@@ -98,8 +98,15 @@ def register_user(db: Session, user_data: UserCreate) -> Optional[User]:
     return new_user
 
 
-def create_user_resp_data(user: User, storage: StorageService) -> dict:
-    user_resp_data = UserResponse.model_validate(user).model_dump(mode="json")
+def create_user_resp_data(
+    user: User, storage: StorageService, onboarding: bool = False
+) -> dict:
+    if onboarding:
+        user_resp_data = UserOnboardResponse.model_validate(user).model_dump(
+            mode="json"
+        )
+    else:
+        user_resp_data = UserResponse.model_validate(user).model_dump(mode="json")
 
     for img in user_resp_data["images"]:
         img["image_url"] = storage.build_image_url(img["image_key"])
@@ -157,7 +164,7 @@ def apply_image_updates(user: User, update_data: dict, db: Session) -> list[str]
 
 
 def is_profile_incomplete(user: User) -> bool:
-    return not user.bio or not user.birthdate or not user.interests or not user.images
+    return not user.bio or not user.birthdate or not user.interests
 
 
 def update_profile_info(

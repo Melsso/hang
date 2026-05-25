@@ -90,6 +90,28 @@ class UserResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True, use_enum_values=True)
 
 
+class UserOnboardResponse(BaseModel):
+    user_id: int
+    first_name: str
+    last_name: str
+    country: str
+    birthdate: Optional[date] = None
+    bio: Optional[str] = None
+    gender: Gender
+    interested_in: InterestedIn
+    interests: List[Interests]
+
+    images: List[UserImageResponse] = Field(default_factory=list)
+
+    @field_validator("interests", mode="before")
+    def convert_interests(cls, v):
+        if v is None:
+            return []
+        return [Interests(i) if not isinstance(i, Interests) else i for i in v]
+
+    model_config = ConfigDict(from_attributes=True, use_enum_values=True)
+
+
 class UserSwipeProfile(BaseModel):
     user_id: int
     first_name: str
@@ -116,6 +138,7 @@ class UserUpdate(BaseModel):
     first_name: Optional[str] = None
     last_name: Optional[str] = None
     email: Optional[EmailStr] = None
+    birthdate: Optional[date] = None
     country: Optional[str] = None
     gender: Optional[Gender] = None
     bio: Optional[str] = None
