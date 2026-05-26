@@ -6,7 +6,6 @@ __pycache__/
 .venv/
 env/
 venv/
-grafana/
 
 .api_env
 .db_env
@@ -14,10 +13,6 @@ grafana/
 /.venv
 poetry.lock
 
-docker-compose*
-*.conf
-*.yml
-Dockerfile*
 inject_data.py
 
 resources/

@@ -1,0 +1,15 @@
+global:
+  scrape_interval: 5s
+
+scrape_configs:
+  - job_name: "hang_app"
+
+    metrics_path: /metrics
+
+    static_configs:
+      - targets:
+          - hang_app:8000
+
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
