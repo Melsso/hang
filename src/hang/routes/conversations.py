@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
-from typing import Annotated
+from typing import Annotated, Optional
 
 from hang.schemas.conversations import MessageListResponse
 from hang.models.db_models import User
@@ -41,26 +41,33 @@ def conversations_get(
 
 
 @conversation_router.get("/{conversation_id}/messages")
-@limiter.limit("7/minute")
+@limiter.limit("20/minute")
 def messages_by_conv_id_get(
     request: Request,
     db: Annotated[Session, Depends(get_db)],
     user: Annotated[User, Depends(get_current_user)],
     conversation_id: int,
+    before_message_id: Optional[int] = None,
 ):
     conversation = get_user_conversation(
         db=db, user_id=user.user_id, conversation_id=conversation_id
     )
 
-    msg_lst = get_conversation_messages(
-        db=db, conversation_id=conversation.conversation_id
+    messages, next_cursor, has_more = get_conversation_messages(
+        db=db,
+        conversation_id=conversation.conversation_id,
+        before_message_id=before_message_id,
     )
-    mark_conversation_messages_read(
-        db=db, conversation_id=conversation.conversation_id, user_id=user.user_id
-    )
+
+    if before_message_id is None:
+        mark_conversation_messages_read(
+            db=db, conversation_id=conversation.conversation_id, user_id=user.user_id
+        )
 
     return MessageListResponse(
         conversation_id=conversation.conversation_id,
         current_user_id=user.user_id,
-        messages=msg_lst,
+        messages=messages,
+        next_cursor=next_cursor,
+        has_more=has_more,
     )

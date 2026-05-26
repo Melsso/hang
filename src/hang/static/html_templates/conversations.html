@@ -54,6 +54,10 @@ let lastMessageEl = null;
 let socket = null;
 let typingTimeout = null;
 let isTyping = false;
+let nextCursor = null;
+let hasMoreMessages = false;
+let isLoadingMessages = false;
+let scrollCooldown = false;
 
 const conversationElements = {};
 
@@ -82,8 +86,10 @@ function initSocket() {
 
             const isActiveChat = msg.conversation_id === currentConversationId;
             if (isActiveChat) {
-                renderMessage(msg);
+                const el = renderMessage(msg);
+                insertMessage(el);
                 scrollToBottom();
+
                 if (msg.sender_id != currentUserId) {
                     socket.send(JSON.stringify({
                         type: "read",
@@ -158,12 +164,12 @@ function handleTyping() {
 }
 
 function renderMessage(m) {
-    const container = document.getElementById("chatMessages");
-
     const div = document.createElement("div");
     div.className = "message";
 
-    div.classList.add(m.sender_id === currentUserId ? "mine" : "theirs");
+    div.classList.add(
+        m.sender_id === currentUserId ? "mine" : "theirs"
+    );
 
     const content = document.createElement("div");
     content.className = "message-content";
@@ -171,29 +177,22 @@ function renderMessage(m) {
 
     const status = document.createElement("div");
     status.className = "message-status";
-
     status.innerText = m.is_read ? "read" : "sent";
 
     div.appendChild(content);
     div.appendChild(status);
 
-    if (lastMessageEl) {
-        const oldStatus = lastMessageEl.querySelector(".message-status");
-        if (oldStatus) oldStatus.remove();
-    }
-
-    lastMessageEl = div;
-
-    container.appendChild(div);
-
-    requestAnimationFrame(() => {
-        container.scrollTop = container.scrollHeight;
-    });
+    return div;
 }
 
-function scrollToBottom() {
+function insertMessage(el, { prepend = false } = {}) {
     const container = document.getElementById("chatMessages");
-    container.scrollTop = container.scrollHeight;
+    if (prepend) {
+        container.prepend(el);
+    } else {
+        container.appendChild(el);
+        lastMessageEl = el;
+    }
 }
 
 function updateConversationPreview(msg, isActiveChat) {
@@ -258,6 +257,13 @@ function renderConversations() {
     });
 }
 
+function scrollToBottom() {
+    const container = document.getElementById("chatMessages");
+    requestAnimationFrame(() => {
+        container.scrollTop = container.scrollHeight;
+    });
+}
+
 async function openConversation(c) {
     currentConversationId = c.conversation_id;
 
@@ -267,14 +273,15 @@ async function openConversation(c) {
     const data = await res.json();
 
     currentUserId = data.current_user_id;
-
+    nextCursor = data.next_cursor;
+    hasMoreMessages = data.has_more;
+    
     const container = document.getElementById("chatMessages");
     container.innerHTML = "";
 
-    data.messages?.forEach(renderMessage);
-
-    requestAnimationFrame(() => {
-        scrollToBottom();
+    data.messages?.forEach(m => {
+        const el = renderMessage(m);
+        insertMessage(el);
     });
 
     const el = conversationElements[c.conversation_id];
@@ -304,6 +311,45 @@ async function openConversation(c) {
             }
         }
     }
+    scrollToBottom();
+}
+
+async function loadOlderMessages() {
+    if (isLoadingMessages) return;
+    if (!hasMoreMessages) return;
+    if (!nextCursor) return;
+
+    const container = document.getElementById("chatMessages");
+    const oldScrollHeight = container.scrollHeight;
+    const oldScrollTop = container.scrollTop;
+    isLoadingMessages = true;
+    
+    try {
+        const res = await fetch(
+            `/api/conversations/${currentConversationId}/messages?before_message_id=${nextCursor}`
+        );
+
+        const data = await res.json();
+
+        nextCursor = data.next_cursor;
+        hasMoreMessages = data.has_more;
+
+        const messages = data.messages || [];
+
+        messages.reverse().forEach(m => {
+            const el = renderMessage(m);
+            insertMessage(el, { prepend: true });
+        });
+
+        requestAnimationFrame(() => {
+            const newScrollHeight = container.scrollHeight;
+            container.scrollTop = newScrollHeight - oldScrollHeight + oldScrollTop;
+        });
+
+    } catch (err) {
+        console.error("pagination error", err);
+    }
+    isLoadingMessages = false;
 }
 
 document.getElementById("sendBtn").onclick = sendMessage;
@@ -317,6 +363,20 @@ document.getElementById("messageInput").addEventListener("input", handleTyping);
 window.addEventListener("beforeunload", () => {
     if (socket) socket.close();
 });
+
+const chatMessages = document.getElementById("chatMessages");
+chatMessages.addEventListener("scroll", async () => {
+    if (scrollCooldown) return;
+    if (chatMessages.scrollTop < 80) {
+        scrollCooldown = true;
+        try {
+            await loadOlderMessages();
+        } finally {
+            scrollCooldown = false;
+        }
+    }
+});
+
 
 renderConversations();
 initSocket();

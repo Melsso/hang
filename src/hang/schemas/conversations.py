@@ -1,6 +1,6 @@
 from pydantic import BaseModel, ConfigDict, Field
 from datetime import datetime
-from typing import List
+from typing import List, Optional
 
 
 class ConversationPreview(BaseModel):
@@ -41,3 +41,6 @@ class MessageListResponse(BaseModel):
     conversation_id: int
     current_user_id: int
     messages: List[MessagePreview] = Field(default_factory=list)
+
+    next_cursor: Optional[int]
+    has_more: bool

@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
+from prometheus_fastapi_instrumentator import Instrumentator
 
 from hang.schemas.config import conf
 
@@ -25,6 +26,8 @@ def create_app() -> FastAPI:
         description="Dating App",
         version="1.0.0",
     )
+
+    Instrumentator().instrument(app).expose(app)
 
     register_middleware(app)
 

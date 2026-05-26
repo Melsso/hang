@@ -6,6 +6,7 @@ __pycache__/
 .venv/
 env/
 venv/
+grafana/
 
 .api_env
 .db_env
@@ -13,6 +14,9 @@ venv/
 /.venv
 poetry.lock
 
+docker-compose*
+*.conf
+*.yml
 Dockerfile*
 inject_data.py
 
