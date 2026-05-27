@@ -1,14 +1,13 @@
 from fastapi.templating import Jinja2Templates
 from fastapi import Request
-from pathlib import Path
 import json
 
 from typing import Type, Callable, Awaitable, Any
 
+from hang.schemas.config import conf
 
-# TODO move this to config get abs path dont resolve like this
-BASE_DIR = Path(__file__).resolve().parent.parent
-templates = Jinja2Templates(directory=str(BASE_DIR / "static/html_templates"))
+
+templates = Jinja2Templates(directory=str(conf.STATIC_DIRECTORY) + "/html_templates")
 
 
 def form_to_model(model: Type[Any]) -> Callable[[Request], Awaitable[Any]]:

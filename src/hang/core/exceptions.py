@@ -83,10 +83,7 @@ def register_exception_handlers(app):
             },
         )
 
-        return RedirectResponse(
-            url=request.headers.get("referer") or "/api/swipes/home/",
-            status_code=303,
-        )
+        return {}
 
     @app.exception_handler(Exception)
     async def general_exception_handler(request: Request, exc: Exception):
