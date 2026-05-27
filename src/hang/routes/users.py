@@ -93,7 +93,22 @@ def profile_post(
         )
 
     try:
-        update_profile_info(db=db, update_data=update_data, user=user, storage=storage)
+        status, msg = update_profile_info(
+            db=db, update_data=update_data, user=user, storage=storage
+        )
+        if not status:
+            return render(
+                request=request,
+                template="profile.html",
+                context={
+                    "user": create_user_resp_data(user=user, storage=storage),
+                    "edit_mode": True,
+                    "viewer_mode": False,
+                    "countries": conf.COUNTRIES,
+                    "interests": Interests,
+                    "errors": [msg],
+                },
+            )
     except Exception as exc:
         logger.error(
             "hang_event",

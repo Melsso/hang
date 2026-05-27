@@ -183,11 +183,11 @@ def register_post(
             context={"errors": ["Email already in use"]},
         )
 
-    usr = register_user(db, userData)
+    usr, msg = register_user(db, userData)
     if not usr:
         return render(
             request=request,
             template="register.html",
-            context={"errors": ["Something unexpected happened."]},
+            context={"errors": [msg]},
         )
     return RedirectResponse(url="/api/auth/login", status_code=303)

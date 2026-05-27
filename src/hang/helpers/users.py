@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import or_, and_
 from sqlalchemy.exc import SQLAlchemyError
 from jose import jwt, JWTError
+from datetime import date
 
 from typing import Annotated, Optional
 from uuid import uuid4
@@ -46,7 +47,17 @@ def get_current_user(request: Request, db: Annotated[Session, Depends(get_db)]) 
         raise HTTPException(status_code=401, detail="Invalid or expired token")
 
 
-def register_user(db: Session, user_data: UserCreate) -> Optional[User]:
+def is_18_or_older(birthdate: date) -> bool:
+    today = date.today()
+
+    age = today.year - birthdate.year
+    if (today.month, today.day) < (birthdate.month, birthdate.day):
+        age -= 1
+
+    return age >= 18
+
+
+def register_user(db: Session, user_data: UserCreate) -> tuple[Optional[User], str]:
     new_user = User(
         first_name=user_data.first_name,
         last_name=user_data.last_name,
@@ -60,7 +71,8 @@ def register_user(db: Session, user_data: UserCreate) -> Optional[User]:
         interests=user_data.interests,
         is_active=True,
     )
-
+    if not is_18_or_older(new_user.birthdate):
+        return None, "You must be over 18 years old."
     try:
         db.add(new_user)
         db.commit()
@@ -93,9 +105,9 @@ def register_user(db: Session, user_data: UserCreate) -> Optional[User]:
                 },
             },
         )
-        return None
+        return None, "Something unexpected happened."
 
-    return new_user
+    return new_user, "success"
 
 
 def create_user_resp_data(
@@ -169,8 +181,10 @@ def is_profile_incomplete(user: User) -> bool:
 
 def update_profile_info(
     db: Session, update_data: dict, user: User, storage: StorageService
-) -> None:
+) -> tuple[bool, str]:
     apply_profile_field_updates(user, update_data)
+    if not is_18_or_older(user.birthdate):
+        return False, "You must be over 18 years old."
 
     keys_to_delete = apply_image_updates(user, update_data, db)
 
@@ -178,6 +192,7 @@ def update_profile_info(
     db.refresh(user)
 
     storage.delete_many(keys=keys_to_delete)
+    return True, "success"
 
 
 def block_user(db: Session, blocker_id: int, blocked_id: int) -> bool:
