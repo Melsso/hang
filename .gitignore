@@ -22,3 +22,5 @@ images/
 *.log
 
 .DS_Store
+
+hang-frontend/
