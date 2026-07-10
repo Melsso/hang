@@ -3,35 +3,35 @@ services:
     build:
       context: ./infra/nginx
       dockerfile: Dockerfile
-    container_name: hang_nginx
+    container_name: hang-nginx
     ports:
       - "8000:80"
     depends_on:
-      - hang_app
+      - api
     networks:
       - hang_network
 
-  hang_app:
+  api:
     build:
-      context: .
+      context: ./hang-backend
       dockerfile: Dockerfile.hang
     env_file:
-      - .api_env
+      - ./hang-backend/.api_env
     networks:
       - hang_network
-    ports:
+    expose:
       - "8000"
     labels:
       prometheus.scrape: "true"
-      service: "hang_app"
+      service: "api"
 
   prometheus:
     build:
       context: ./infra/prometheus
       dockerfile: Dockerfile
-    container_name: hang_prometheus
-    ports:
-      - "9090:9090"
+    container_name: hang-prometheus
+    expose:
+      - "9090"
     networks:
       - hang_network
     restart: unless-stopped
@@ -40,9 +40,9 @@ services:
     build:
       context: ./infra/grafana
       dockerfile: Dockerfile
-    container_name: hang_grafana
+    container_name: hang-grafana
     ports:
-      - "3000:3000"
+      - "3000"
     networks:
       - hang_network
     depends_on:
