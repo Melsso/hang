@@ -10,7 +10,7 @@ from uuid import uuid4
 import imghdr
 import logging
 
-from hang.schemas.users import UserResponse, UserCreate, UserOnboardResponse
+from hang.schemas.users import UserResponse, UserCreate
 from hang.schemas.config import conf
 from hang.models.db_models import User, UserImage, UserBlock, UserReport
 
@@ -110,15 +110,9 @@ def register_user(db: Session, user_data: UserCreate) -> tuple[Optional[User], s
     return new_user, "success"
 
 
-def create_user_resp_data(
-    user: User, storage: StorageService, onboarding: bool = False
-) -> dict:
-    if onboarding:
-        user_resp_data = UserOnboardResponse.model_validate(user).model_dump(
-            mode="json"
-        )
-    else:
-        user_resp_data = UserResponse.model_validate(user).model_dump(mode="json")
+def create_user_resp_data(user: User, storage: StorageService) -> dict:
+
+    user_resp_data = UserResponse.model_validate(user).model_dump(mode="json")
 
     for img in user_resp_data["images"]:
         img["image_url"] = storage.build_image_url(img["image_key"])
@@ -171,7 +165,6 @@ def apply_image_updates(user: User, update_data: dict, db: Session) -> list[str]
                 img.position = position
 
         user.images.sort(key=lambda x: x.position)
-
     return keys_to_delete
 
 
@@ -311,7 +304,7 @@ def process_file_payloads(
     file_payloads: list[tuple[bytes, str]],
     user: User,
     storage: StorageService,
-) -> Optional[list[str]]:
+) -> Optional[str]:
     next_position = max((img.position for img in user.images), default=-1) + 1
 
     elements_to_upload: list[tuple[str, bytes, str]] = []
@@ -358,7 +351,7 @@ def process_file_payloads(
             },
         )
 
-        return ["Failed to save uploaded images."]
+        return "Failed to save uploaded images."
 
     except Exception as exc:
         if uploaded_keys:
@@ -373,6 +366,6 @@ def process_file_payloads(
                 "context": {"location": "process_file_payloads"},
             },
         )
-        return ["Failed to upload images."]
+        return "Failed to upload images."
 
     return None

@@ -5,18 +5,15 @@ import logging
 
 from hang.schemas.users import (
     UserUpdate,
-    Interests,
     ReportUserCreate,
     BlockUserCreate,
 )
-from hang.schemas.config import conf
 from hang.models.db_models import User
 
 from hang.core.database import get_db
 from hang.core.storage import StorageService, get_storage
 from hang.core.middleware import limiter
 
-from hang.helpers.template_helpers import render, form_to_model
 from hang.helpers.conversations import verify_conversation
 from hang.helpers.users import (
     create_user_resp_data,
@@ -36,34 +33,16 @@ logger = logging.getLogger("Hang")
 
 
 @user_router.get("/profile")
-@limiter.limit("5/minute")
+@limiter.limit("25/minute")
 def profile_get(
     request: Request,
     user: Annotated[User, Depends(get_current_user)],
     storage: Annotated[StorageService, Depends(get_storage)],
-    edit: bool = False,
-    onboarding: bool | None = None,
 ):
-    if onboarding is None:
-        onboarding = False
 
-    user_resp_data = create_user_resp_data(
-        user=user, storage=storage, onboarding=onboarding
-    )
+    user_resp_data = create_user_resp_data(user=user, storage=storage)
 
-    return render(
-        request=request,
-        template="profile.html",
-        context={
-            "user": user_resp_data,
-            "edit_mode": edit,
-            "viewer_mode": False,
-            "onboarding": onboarding,
-            "countries": conf.COUNTRIES,
-            "interests": Interests,
-            "errors": [] if not onboarding else ["Please complete your profile!"],
-        },
-    )
+    return user_resp_data
 
 
 @user_router.post("/profile")
@@ -73,42 +52,20 @@ def profile_post(
     db: Annotated[Session, Depends(get_db)],
     user: Annotated[User, Depends(get_current_user)],
     storage: Annotated[StorageService, Depends(get_storage)],
-    userData: Annotated[UserUpdate, Depends(form_to_model(UserUpdate))],
+    userData: UserUpdate,
 ):
     update_data = userData.model_dump(exclude_unset=True)
     if "email" in update_data and not check_email_availability(
         db=db, email=update_data["email"], user_id=user.user_id
     ):
-        return render(
-            request=request,
-            template="profile.html",
-            context={
-                "user": create_user_resp_data(user=user, storage=storage),
-                "edit_mode": True,
-                "viewer_mode": False,
-                "countries": conf.COUNTRIES,
-                "interests": Interests,
-                "errors": ["Email already in use"],
-            },
-        )
+        raise HTTPException(status_code=400, detail="Email already in use.")
 
     try:
         status, msg = update_profile_info(
             db=db, update_data=update_data, user=user, storage=storage
         )
         if not status:
-            return render(
-                request=request,
-                template="profile.html",
-                context={
-                    "user": create_user_resp_data(user=user, storage=storage),
-                    "edit_mode": True,
-                    "viewer_mode": False,
-                    "countries": conf.COUNTRIES,
-                    "interests": Interests,
-                    "errors": [msg],
-                },
-            )
+            raise HTTPException(status_code=400, detail=msg)
     except Exception as exc:
         logger.error(
             "hang_event",
@@ -121,15 +78,7 @@ def profile_post(
             },
         )
 
-    return render(
-        request=request,
-        template="profile.html",
-        context={
-            "user": create_user_resp_data(user=user, storage=storage),
-            "edit_mode": False,
-            "viewer_mode": False,
-        },
-    )
+    return create_user_resp_data(user=user, storage=storage)
 
 
 @user_router.get("/profile/{user_id}")
@@ -144,32 +93,18 @@ def visit_profile_get(
     if is_blocked(db, user.user_id, user_id):
         raise HTTPException(
             status_code=403,
-            detail={
-                "redirect_url": request.headers.get("referer"),
-                "reason": "user_blocked",
-            },
+            detail="User blocked",
         )
 
     if not verify_conversation(db, user.user_id, user_id):
         raise HTTPException(
             status_code=403,
-            detail={
-                "redirect_url": request.headers.get("referer"),
-                "reason": "no_conversation_access",
-            },
+            detail="User not matched",
         )
 
     target_user = db.query(User).filter(User.user_id == user_id).first()
 
-    return render(
-        request=request,
-        template="profile.html",
-        context={
-            "user": create_user_resp_data(user=target_user, storage=storage),
-            "edit_mode": False,
-            "viewer_mode": True,
-        },
-    )
+    return create_user_resp_data(user=target_user, storage=storage)
 
 
 @user_router.post("/profile/report-create")
@@ -204,18 +139,7 @@ def block_post(
         blocker_id=user.user_id,
         blocked_id=payload.blocked_user_id,
     )
-    if ok:
-        return render(
-            request=request,
-            template="profile.html",
-            context={
-                "user": create_user_resp_data(user=user, storage=get_storage()),
-                "edit_mode": False,
-                "viewer_mode": False,
-                "countries": conf.COUNTRIES,
-                "interests": Interests,
-            },
-        )
+
     return {"status": ok}
 
 
@@ -232,29 +156,13 @@ async def profile_image_upload_post(
         files=files, current_count=len(user.images)
     )
     if errs:
-        return render(
-            request=request,
-            template="profile.html",
-            context={
-                "user": create_user_resp_data(user, storage=storage),
-                "edit_mode": False,
-                "viewer_mode": False,
-                "errors": errs,
-            },
-        )
+        raise HTTPException(status_code=400, detail=errs)
 
     errs = process_file_payloads(
         db=db, file_payloads=file_payloads, user=user, storage=storage
     )
+    if errs:
+        raise HTTPException(status_code=400, detail=errs)
 
     fresh_user = db.query(User).filter(User.user_id == user.user_id).first()
-    return render(
-        request=request,
-        template="profile.html",
-        context={
-            "user": create_user_resp_data(user=fresh_user, storage=storage),
-            "edit_mode": False,
-            "viewer_mode": False,
-            "errors": errs or [],
-        },
-    )
+    return create_user_resp_data(user=fresh_user, storage=storage)

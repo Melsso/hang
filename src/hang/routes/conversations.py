@@ -2,14 +2,13 @@ from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 from typing import Annotated, Optional
 
-from hang.schemas.conversations import MessageListResponse
+from hang.schemas.conversations import MessageListResponse, ConversationPreview
 from hang.models.db_models import User
 
 from hang.core.database import get_db
 from hang.core.middleware import limiter
 from hang.core.storage import StorageService, get_storage
 
-from hang.helpers.template_helpers import render
 from hang.helpers.users import get_current_user
 from hang.helpers.messages import (
     get_conversation_messages,
@@ -23,7 +22,7 @@ from hang.helpers.conversations import (
 conversation_router = APIRouter(prefix="/conversations", tags=["conversations"])
 
 
-@conversation_router.get("")
+@conversation_router.get("", response_model=list[ConversationPreview])
 @limiter.limit("5/minute")
 def conversations_get(
     request: Request,
@@ -33,14 +32,12 @@ def conversations_get(
 ):
     conv_lst = fetch_conversations_list(db=db, user_id=user.user_id, storage=storage)
 
-    return render(
-        request=request,
-        template="conversations.html",
-        context={"conversations": [c.model_dump(mode="json") for c in conv_lst]},
-    )
+    return conv_lst
 
 
-@conversation_router.get("/{conversation_id}/messages")
+@conversation_router.get(
+    "/{conversation_id}/messages", response_model=MessageListResponse
+)
 @limiter.limit("20/minute")
 def messages_by_conv_id_get(
     request: Request,

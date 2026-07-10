@@ -17,7 +17,6 @@ from hang.core.database import get_db
 from hang.core.storage import StorageService, get_storage
 from hang.core.middleware import limiter
 
-from hang.helpers.template_helpers import render
 from hang.helpers.users import get_current_user
 from hang.helpers.settings import (
     get_blocked_users,
@@ -31,15 +30,6 @@ from hang.helpers.settings import (
 
 settings_router = APIRouter(prefix="/settings", tags=["settings"])
 logger = logging.getLogger("Hang")
-
-
-@settings_router.get("/")
-@limiter.limit("5/minute")
-def settings_get(
-    request: Request,
-    user: Annotated[User, Depends(get_current_user)],
-):
-    return render(request=request, template="settings.html")
 
 
 @settings_router.get("/reports", response_model=list[ReportResponse])

@@ -7,7 +7,6 @@ from hang.schemas.config import conf
 from hang.core.logging import setup_logging
 from hang.core.middleware import register_middleware
 from hang.core.startup import register_startup_events
-from hang.core.exceptions import register_exception_handlers
 
 from hang.routes.auth import auth_router
 from hang.routes.users import user_router
@@ -43,8 +42,6 @@ def create_app() -> FastAPI:
         StaticFiles(directory=conf.STATIC_DIRECTORY),
         name="static",
     )
-
-    register_exception_handlers(app)
 
     register_startup_events(app)
 

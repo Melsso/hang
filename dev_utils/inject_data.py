@@ -203,7 +203,7 @@ def main():
 
     Base.metadata.create_all(bind=engine)
     db = sessionmaker(bind=engine, autoflush=False, autocommit=False)()
-    
+
     try:
         print("Seeding users...")
         users = create_users(db)

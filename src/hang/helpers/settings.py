@@ -1,11 +1,12 @@
 from sqlalchemy.orm import Session, selectinload
-from typing import Tuple
+from typing import Tuple, List
 from datetime import datetime, timezone
 
 import logging
 
 from hang.core.storage import StorageService
 
+from hang.schemas.settings import BlockedUserResponse
 from hang.models.db_models import User, UserBlock, UserReport
 from hang.schemas.settings import ReportResponse, PasswordChange
 
@@ -74,15 +75,23 @@ def delete_report(db: Session, reporter_id: int, reported_id: int) -> bool:
     return True
 
 
-def get_blocked_users(db: Session, user_id: int) -> list[User]:
+def get_blocked_users(db: Session, user_id: int) -> List[BlockedUserResponse]:
     rows = (
-        db.query(User)
+        db.query(User, UserBlock.created_at)
         .join(UserBlock, User.user_id == UserBlock.blocked_id)
         .filter(UserBlock.blocker_id == user_id)
         .all()
     )
 
-    return rows
+    return [
+        BlockedUserResponse(
+            user_id=user.user_id,
+            first_name=user.first_name,
+            last_name=user.last_name,
+            created_at=created_at,
+        )
+        for user, created_at in rows
+    ]
 
 
 def change_password(

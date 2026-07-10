@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr, Field, field_validator, ConfigDict
-from datetime import datetime, date
+from datetime import date
 from typing import List, Optional
 from enum import Enum
 
@@ -59,6 +59,7 @@ class UserImageResponse(BaseModel):
     image_id: int
     image_key: str
     position: int
+    image_url: Optional[str] = ""
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -71,32 +72,6 @@ class UserResponse(BaseModel):
     country: str
     birthdate: date
     bio: str
-    gender: Gender
-    interested_in: InterestedIn
-    interests: List[Interests]
-
-    images: List[UserImageResponse] = Field(default_factory=list)
-
-    is_active: bool
-    created_at: datetime
-    updated_at: datetime
-
-    @field_validator("interests", mode="before")
-    def convert_interests(cls, v):
-        if v is None:
-            return []
-        return [Interests(i) if not isinstance(i, Interests) else i for i in v]
-
-    model_config = ConfigDict(from_attributes=True, use_enum_values=True)
-
-
-class UserOnboardResponse(BaseModel):
-    user_id: int
-    first_name: str
-    last_name: str
-    country: str
-    birthdate: Optional[date] = None
-    bio: Optional[str] = None
     gender: Gender
     interested_in: InterestedIn
     interests: List[Interests]
@@ -157,3 +132,9 @@ class ReportUserCreate(BaseModel):
     reported_user_id: int
     reason: str = Field(..., max_length=100)
     message: Optional[str] = Field(None, max_length=500)
+
+
+class UserStateResponse(BaseModel):
+    authenticated: bool
+    user_id: Optional[int]
+    onboarding_required: bool
