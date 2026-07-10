@@ -99,7 +99,6 @@ This project was built to simulate a **real-world scalable messaging infrastruct
     │       ├── routes/
     │       ├── schemas/
     │       ├── models/
-    │       ├── static/
     │       └── main.py
     │
     ├── Dockerfile.hang

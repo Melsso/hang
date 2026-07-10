@@ -1,3 +1,18 @@
+FROM node:22-alpine AS frontend-build
+
+WORKDIR /frontend
+
+COPY hang-frontend/package*.json ./
+
+RUN npm install
+
+COPY hang-frontend/ .
+
+RUN npm run build
+
+
 FROM nginx:1.27.2
 
-COPY nginx.conf /etc/nginx/nginx.conf
+COPY --from=frontend-build /frontend/dist /usr/share/nginx/html
+
+COPY infra/nginx/nginx.conf /etc/nginx/nginx.conf

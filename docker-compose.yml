@@ -1,8 +1,8 @@
 services:
   nginx:
     build:
-      context: ./infra/nginx
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: ./infra/nginx/Dockerfile
     container_name: hang-nginx
     ports:
       - "8000:80"

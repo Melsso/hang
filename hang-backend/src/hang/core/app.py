@@ -1,8 +1,5 @@
 from fastapi import FastAPI
-from fastapi.staticfiles import StaticFiles
 from prometheus_fastapi_instrumentator import Instrumentator
-
-from hang.schemas.config import conf
 
 from hang.core.logging import setup_logging
 from hang.core.middleware import register_middleware
@@ -36,12 +33,6 @@ def create_app() -> FastAPI:
     app.include_router(conversation_router, prefix="/api")
     app.include_router(settings_router, prefix="/api")
     app.include_router(ws_router, prefix="/api")
-
-    app.mount(
-        "/static",
-        StaticFiles(directory=conf.STATIC_DIRECTORY),
-        name="static",
-    )
 
     register_startup_events(app)
 

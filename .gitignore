@@ -1,26 +1,38 @@
+.env
+*.env
+.env.*
+!.env.example
+hang-backend/.api_env
+hang-backend/.db_env
+
+hang-frontend/node_modules/
+hang-frontend/dist/
+hang-frontend/.vite/
+hang-frontend/coverage/
+
 __pycache__/
 *.py[cod]
 *$py.class
-.ruff_cache
 
+venv/
 .venv/
 env/
-venv/
 
-.api_env
-.db_env
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
 
-/.venv
-poetry.lock
+docker-compose.override.yml
 
-resources/
-images/
+*.log
 
 .vscode/
 .idea/
 
-*.log
-
 .DS_Store
+.DS_Store?
+Thumbs.db
 
-hang-frontend/
+*.egg-info/
+build/
+dist/

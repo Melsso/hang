@@ -2,7 +2,6 @@ from pydantic_settings import BaseSettings
 from pydantic import field_validator
 from typing import List, Dict
 from typing_extensions import Annotated
-from pathlib import Path
 import pycountry
 
 
@@ -24,8 +23,6 @@ class Settings(BaseSettings):
     MAX_IMAGES: int
     MAX_IMAGE_SIZE: int
     ALLOWED_IMAGE_TYPES: Annotated[str, "csv"]
-
-    STATIC_DIRECTORY: Path
 
     R2_ACCESS_KEY_ID: str
     R2_SECRET_ACCESS_KEY: str

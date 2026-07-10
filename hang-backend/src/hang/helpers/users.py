@@ -111,7 +111,6 @@ def register_user(db: Session, user_data: UserCreate) -> tuple[Optional[User], s
 
 
 def create_user_resp_data(user: User, storage: StorageService) -> dict:
-
     user_resp_data = UserResponse.model_validate(user).model_dump(mode="json")
 
     for img in user_resp_data["images"]:

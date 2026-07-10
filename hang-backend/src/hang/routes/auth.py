@@ -79,10 +79,10 @@ async def login_get_google_callback(
 
     user = authenticate_user_google(db=db, google_user_info=user_info)
     if not user:
-        return RedirectResponse(url="http://localhost:5173/login")
+        return RedirectResponse(url="/login")
 
     token = create_access_token({"sub": str(user.user_id), "email": user.email})
-    response = RedirectResponse(url="http://localhost:5173/swipes")
+    response = RedirectResponse(url="/swipes")
 
     response.set_cookie(
         key="access_token",

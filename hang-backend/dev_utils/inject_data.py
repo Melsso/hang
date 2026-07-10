@@ -3,9 +3,9 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 from passlib.hash import bcrypt
 
-from hang.schemas.config import conf
+from src.hang.schemas.config import conf
 
-from hang.models.db_models import (
+from src.hang.models.db_models import (
     User,
     Swipe,
     Conversation,
@@ -14,19 +14,14 @@ from hang.models.db_models import (
     Base,
 )
 
-from hang.schemas.swipes import SwipeType
-from hang.core.storage import get_storage
+from src.hang.schemas.swipes import SwipeType
+from src.hang.core.storage import get_storage
 from pathlib import Path
 import mimetypes
 
 
-LOCAL_RESOURCES = Path("dev_utils/resources/users").resolve()
-
-
-DEV_PASSWORD = "test123"
-HASHED_PASSWORD = bcrypt.hash(DEV_PASSWORD)
-
-DEFAULT_IMAGE = "/static/images/default_user.png"
+LOCAL_RESOURCES = Path("dev_utils/resources").resolve()
+HASHED_PASSWORD = bcrypt.hash("test123")
 
 
 def create_users(db):
@@ -95,41 +90,37 @@ def create_users(db):
 
 
 def create_user_images(db, users):
-    user_images = []
     storage = get_storage()
-    local_mapping = {
-        users[0].user_id: LOCAL_RESOURCES / "1",
-        users[1].user_id: LOCAL_RESOURCES / "2",
-        users[2].user_id: LOCAL_RESOURCES / "3",
-        users[3].user_id: LOCAL_RESOURCES / "4",
-    }
+    image_path = LOCAL_RESOURCES / "default_user.png"
+
+    if not image_path.exists():
+        raise FileNotFoundError(f"Missing default image: {image_path}")
+
+    with open(image_path, "rb") as f:
+        contents = f.read()
+
+    content_type = (
+        mimetypes.guess_type(image_path.name)[0] or "application/octet-stream"
+    )
+
+    user_images = []
 
     for user in users:
-        user_dir = local_mapping.get(user.user_id)
+        key = f"users/{user.user_id}/default_user.png"
 
-        if not user_dir or not user_dir.exists():
-            continue
+        storage.upload(
+            key=key,
+            contents=contents,
+            ext=content_type,
+        )
 
-        files = sorted([f for f in user_dir.iterdir() if f.is_file()])
-
-        for position, file_path in enumerate(files):
-            key = f"users/{user.user_id}/{file_path.name}"
-
-            with open(file_path, "rb") as f:
-                contents = f.read()
-
-            content_type = (
-                mimetypes.guess_type(file_path.name)[0] or "application/octet-stream"
+        user_images.append(
+            UserImage(
+                user_id=user.user_id,
+                image_key=key,
+                position=0,
             )
-            storage.upload(key=key, contents=contents, ext=content_type)
-
-            user_images.append(
-                UserImage(
-                    user_id=user.user_id,
-                    image_key=key,
-                    position=position,
-                )
-            )
+        )
 
     db.add_all(user_images)
     db.commit()

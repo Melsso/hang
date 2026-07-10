@@ -39,9 +39,7 @@ def profile_get(
     user: Annotated[User, Depends(get_current_user)],
     storage: Annotated[StorageService, Depends(get_storage)],
 ):
-
     user_resp_data = create_user_resp_data(user=user, storage=storage)
-
     return user_resp_data
 
 
