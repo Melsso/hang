@@ -1,73 +1,77 @@
-# React + TypeScript + Vite
+# Hang Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+![React](https://img.shields.io/badge/React-TypeScript-61DAFB)
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Frontend Architecture
 
-## React Compiler
+Built with React, TypeScript, Vite and Tailwind CSS.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### Core Components
+| Module | Description |
+|---|---|
+| Auth | Login, registration, Google OAuth |
+| Discovery | Swipe interface |
+| Profile | View profile, edit own profile, update info |
+| Messaging | Chat, typing indicators |
+| Settings | Blocking, reports, password, delete account |
 
-## Expanding the ESLint configuration
+- **Routing**: React Router manages authentication, discovery, messaging, profile and settings routes.
+- **Components**: Reusable UI for cards, forms, chat, navigation and dialogs.
+- **State Management**: Application state separates authentication, profile data, conversations and UI state.
+- **API Layer**: Centralized API client for REST endpoints and WebSocket integration.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+---
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## Project Layout
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```text
+hang-frontend/
+│
+├── src/
+│    ├── api/
+│    ├── components/
+│    ├── pages/
+│    ├── routes/
+│    │ 
+│    ├── assets/
+│    ├── constants
+│    │
+│    ├──App.tsx
+│    ├── index.css
+│    └── main.tsx
+│
+├── index.html
+│
+├── package.json
+├── package-lock.json
+│
+├── tsconfig.json
+├── tsconfig.app.json
+├── tsconfig.node.json
+├── vite.config.ts
+│
+└── README.md
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+---
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Build Process
+Multi-stage Docker build compiles Vite assets and serves them with Nginx.
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+---
+
+## Docker
+```bash
+bash ../start.sh
+```
+If you want to build frontend only you have to do so manually as now it is coupled with nginx container, this is intended.
+
+---
+
+## Local Development
+```bash
+npm install
+npm run dev
 ```

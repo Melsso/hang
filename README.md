@@ -1,38 +1,65 @@
-# 📡 Hang — Real-Time Messaging System
-A production-style real-time messaging system built with **FastAPI, WebSockets, Redis Pub/Sub, PostgreSQL, and Dockerized multi-instance deployment behind Nginx load balancing**.
+# 🖤 Hang — Full-Stack Social Discovery Platform
 
-This project demonstrates a **scalable distributed backend architecture for real-time communication systems**, not just a basic chat application.
+A production-style real-time social discovery platform built with **FastAPI, WebSockets, Redis Pub/Sub, PostgreSQL, React, TypeScript, and Dockerized multi-instance deployment behind Nginx load balancing**.
 
----
-
-# ⚡ Why this project matters
-This project was built to simulate a **real-world scalable messaging infrastructure**, focusing on:
-- Real-time WebSocket communication at scale
-- Distributed event propagation using Redis Pub/Sub
-- Horizontal scaling of stateless backend services
-- Production-style deployment using Docker + Nginx
+This project demonstrates a **scalable distributed backend architecture for real-time communication systems**.
 
 ---
 
-# 🚀 Key Features
-## 💬 Real-time Messaging
-- WebSocket-based messaging system
-- Instant message delivery across connected clients
-- Room-based routing per conversation
+# ⚡ Quick Summary
+
+The platform allows users to:
+- Create and customize profiles
+- Discover users through swipe interactions
+- Match through mutual interests
+- Communicate through real-time conversations
+- Manage account settings, reports, and blocked users
+
+The project focuses on building a realistic production architecture with:
+- containerized services
+- reverse proxy routing
+- horizontal scaling of stateless backend services
+- real-time WebSocket communication at scale
+- persistent relational data
+- monitoring infrastructure
+
+---
+
+# ✨ Features
+
+## 🔐 Authentication
+- Email/password authentication
+- Google OAuth login
+- Secure HTTP-only cookie sessions
+
+## 👤 User Profiles
+- Profile creation and editing
+- User images
+- Interests and preferences
+- Country and demographic information
+
+## ⚙️ Account Management
+- Change password
+- Delete account
+- View reports
+- Block/unblock users
+
+## ❤️ Swipe System
+- Like/pass interactions
+- Persistent swipe history
+- Match creation through mutual likes
+- Swipe state persistence
 
 ## 🔄 Pub/Sub Architecture (Redis)
 - Redis-backed event propagation across multiple app instances
 - Enables horizontal scaling of WebSocket servers
 
-## 👥 Conversation System
-- Multi-conversation support per user
-- Real-time conversation preview updates
-- Unread message tracking
-
-## ✍️ Typing & Read Indicators
+## 💬 Real-Time Messaging
+- WebSocket communication
+- Room-based routing per conversation
 - Live typing indicators
+- Unread message tracking
 - Read receipts per message
-- Cross-client synchronization
 
 ## 📄 Pagination
 - Cursor-based pagination for messages
@@ -45,85 +72,128 @@ This project was built to simulate a **real-world scalable messaging infrastruct
 - Stateless application design
 
 ## 🐳 Full Dockerized Environment
-- Containerized backend, Redis, PostgreSQL, and Nginx
+- Containerized backend, Redis, PostgreSQL, Nginx and isolated React frontend
 - One-command startup scripts
 - Reproducible development environment
 
 ---
 
-# 🧱 Architecture Overview
-                ┌──────────────┐
-                │    Nginx     │
-                │ Load Balancer│
-                └──────┬───────┘
-                       │
-        ┌──────────────┴──────────────┐
-        │                             │
-┌──────────────┐             ┌──────────────┐
-│ FastAPI App  │             │ FastAPI App  │
-│  Instance 1  │             │  Instance 2  │
-└──────┬───────┘             └──────┬───────┘
-       │                             │
-       └──────────────┬──────────────┘
-                      │
-                ┌────────────┐
-                │   Redis    │
-                │ Pub/Sub    │
-                └────────────┘
-                      │
-                ┌────────────┐
-                │ PostgreSQL │
-                └────────────┘
+# 🏗 Architecture Overview
+
+```text
+                              Users
+                                │
+                                ▼
+                      ┌─────────────────┐
+                      │      Nginx      │
+                      │ Reverse Proxy & │
+                      │ Static Hosting  │
+                      └────────┬────────┘
+                               │
+             ┌─────────────────┴─────────────────┐
+             │                                   │
+             │                              FastAPI Instances
+             │                                REST API
+             │                              WebSockets             
+             │                                   │ 
+             │                       ┌───────────┴───────────┐
+             ▼                       ▼                       ▼
+    React Frontend (Vite)       ┌─────────┐              ┌─────────┐
+        Static Assets           │FastAPI-1│              │FastAPI-2│
+                                └─────┬───┘              └─────┬───┘
+                                      └──────────┬─────────────┘
+                                                 │
+                           ┌─────────────────────┼─────────────────────┐
+                           │                     │                     │
+                           ▼                     ▼                     ▼
+                    PostgreSQL              Redis Pub/Sub       S3-Compatible
+                      Database            Cache & Messaging     Object Storage
+              
+    ─────────────────────────────────────────────────────────────────────────
+                                                 ▲
+                                                 │
+                                          /metrics endpoint
+                                                 │
+                                         ┌───────────────┐
+                                         │  Prometheus   │
+                                         └───────┬───────┘
+                                                 │
+                                                 ▼
+                                         ┌─────────────┐
+                                         │   Grafana   │
+                                         │ Dashboards  │
+                                         └─────────────┘
+```
+
+---
+
+# 🐳 Infrastructure
+
+The entire system runs using Docker containers:
+
+Services:
+
+| Service | Purpose |
+|---|---|
+| nginx | Reverse proxy + frontend serving |
+| api | FastAPI backend |
+| postgres | Persistent database |
+| redis | Cache + realtime event layer |
+| prometheus | Metrics collection |
+| grafana | Monitoring dashboards |
 
 ---
 
 # 🛠 Tech Stack
-- Backend: FastAPI (Python 3.11)
+
+- Backend: FastAPI
 - Realtime: WebSockets
-- Messaging Infra: Redis Pub/Sub
+- Authentication: JWT, OAuth (Google)
+- Storage: S3-compatible (AWS / R2)
 - Database: PostgreSQL
+- Frontend: React
 - Reverse Proxy: Nginx
 - Containerization: Docker
-- Auth: OAuth (Google)
-- Storage: S3-compatible (AWS / R2)
+- Monitoring: Prometheus, Grafana
 
 ---
 
-# 📦 Project Structure
-    hang/
-    │
-    ├── src/
-    │   └── hang/
-    │       ├── core/
-    │       ├── helpers/
-    │       ├── routes/
-    │       ├── schemas/
-    │       ├── models/
-    │       └── main.py
-    │
-    ├── Dockerfile.hang
-    ├── logging.json
-    │
-    ├── infra/
-    │   ├── grafana
-    │   ├── nginx
-    │   ├── prometheus
-    │   ├── Dockerfile.db
-    │   ├── Dockerfile.redis
-    │
-    ├── dev_utils/
-    │   ├── start.sh
-    │   └── stop.sh
-    │
-    ├── docker-compose.yml
-    ├── .api.env.example
-    ├── .db.env.example
-    │
-    ├── README.md
+# 📂 Project Structure
+
+```text
+hang/
+│
+├── hang-frontend/
+│ ├── src/
+│ ├── vite.config.ts
+│ └── README.md
+│
+├── hang-backend/
+│ ├── src/
+│ │ └── hang/
+│ ├── Dockerfile.hang
+│ ├── dev_utils/
+│ ├── .api.env.example
+│ ├── .db.env.example
+│ └── README.md
+│
+├── infra/
+│ ├── nginx/
+│ ├── prometheus/
+│ ├── grafana/
+│ ├── Dockerfile.db
+│ └── Dockerfile.redis
+│
+├── docker-compose.yml
+├── start.sh
+├── stop.sh
+└── README.md
+```
 
 ---
 
-# ⚡ Quick Start
+# 🚀 Running Locally
+
 1. Clone the repository
 ```bash
     git clone https://github.com/Melsso/hang
@@ -142,15 +212,10 @@ Required services:
 - Google OAuth credentials
 - S3 / R2 storage credentials
 
-3. Start the system
-Option A — Recommended (Docker Compose)
-```bash
-    docker compose up --build
-```
 
-Option B — Convenience script
+3. Start the system
 ```bash
-    ./dev_utils/start.sh NUMBER-OF-INSTANCES
+    ./start.sh NUMBER-OF-INSTANCES
 ```
 This script:
 - creates required docker network
@@ -158,48 +223,30 @@ This script:
 - builds and starts application services
 
 4. Stop system
-Option A — Recommended (Docker Compose)
 ```bash
-    docker compose down
-```
-Option B — Convenience script
-```bash
-    ./dev_utils/stop.sh
+    ./stop.sh
 ```
 
 ---
 
 # 🌐 Access
-API: http://localhost:8000/api/auth/
+
+Application: http://localhost:8000/
+or whichever port you decide to bind nginx to.
 
 ---
 
-# 🧠 System Design Highlights
+# 🧠 Engineering Highlights
+
+- **Production-style routing**: Nginx acts as the single entry point, serves frontend assets, proxies API requests and handles WebSocket upgrades
 - **Stateless backend architecture**: All FastAPI instances are stateless, enabling horizontal scaling behind a load balancer.
 - **Redis Pub/Sub event propagation**: Ensures real-time synchronization of messages across multiple backend instances.
-- **WebSocket room model**: Users join conversation-specific rooms for isolated message broadcasting.
-- **Cursor-based pagination**: Efficient loading of large message histories without full dataset fetching.
-
----
-
-# 📊 Observability
-- Structured JSON logging across all services
-- Request-level logging with event tracing
-- Grafana integration for metrics visualization
-
----
-
-# 🔐 Authentication
-- Google OAuth login flow
-- Token-based session management
-- 30-minute token expiry policy (stateless enforcement)
+- **Containerized deployment**: Every infrastructure component runs independently and can be rebuilt reproducibly.
 
 ---
 
 # ⚠️ Notes
 - External services (OAuth, S3, etc.) require valid credentials in .api_env
-- This system is designed for distributed deployment, not single-process execution
-- WebSocket scaling is handled via Redis pub/sub layer
 
 ---
 
@@ -208,18 +255,10 @@ API: http://localhost:8000/api/auth/
 - Advanced message delivery guarantees (ACK system)
 - Push notifications for offline users
 - Mobile client integration
+- CI/CD pipeline
+- Cloud deployment
 
 ---
 
-# 🧾 License
+# 📄 License
 MIT
-
----
-
-# ⭐ Project Summary
-This project demonstrates:
-- real-time system design (WebSockets + pub/sub)
-- distributed backend architecture
-- scalable service orchestration
-- production-style Docker deployment
-- pagination + state management in real-time systems
