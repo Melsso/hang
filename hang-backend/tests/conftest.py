@@ -9,9 +9,10 @@ from fastapi.testclient import TestClient
 
 from hang.main import app
 from hang.core.database import get_db
-from hang.helpers.users import get_current_user
 from hang.core.storage import get_storage
+from hang.helpers.users import get_current_user
 from hang.models.db_models import Base, User
+from hang.schemas.config import conf
 
 from tests.utils import populate_db
 from tests.fakes import FakeStorageService
@@ -54,7 +55,7 @@ def db(engine, request):
     session = Session()
 
     if hasattr(request, "param"):
-        populate_db(session, request.param)
+        session.info["seeded"] = populate_db(session, request.param)
 
     yield session
 
@@ -66,6 +67,13 @@ def db(engine, request):
 @pytest.fixture
 def current_user_email(request):
     return getattr(request, "param", None)
+
+
+@pytest.fixture(autouse=True)
+def mock_conf(monkeypatch):
+    monkeypatch.setattr(conf, "MAX_IMAGES", 6)
+    monkeypatch.setattr(conf, "MAX_IMAGE_SIZE", 5_000_000)
+    monkeypatch.setattr(conf, "ALLOWED_IMAGE_TYPES", ["png", "jpeg", "jpg"])
 
 
 @pytest.fixture(autouse=True)

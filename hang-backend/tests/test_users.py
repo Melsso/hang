@@ -1,7 +1,17 @@
 import pytest
+import io
+from PIL import Image
 from datetime import date
 
-from hang.models.db_models import User, Conversation, UserReport, UserBlock
+from hang.models.db_models import User, Conversation, UserReport, UserBlock, UserImage
+from hang.schemas.config import conf
+
+
+def make_test_png() -> bytes:
+    img = Image.new("RGB", (1, 1), color=(255, 0, 0))
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return buf.getvalue()
 
 
 @pytest.mark.parametrize(
@@ -299,3 +309,317 @@ def test_other_profile_reported(client, db):
 
     assert response.status_code == 200
     assert response.json()["email"] == "john@test.com"
+
+
+@pytest.mark.parametrize(
+    "db",
+    [
+        {
+            User: [
+                {
+                    "first_name": "John",
+                    "last_name": "Doe",
+                    "email": "john@test.com",
+                    "gender": "male",
+                    "interested_in": "female",
+                    "interests": ["sports"],
+                    "birthdate": date(1995, 6, 15),
+                }
+            ],
+            UserImage: [
+                {
+                    "user_id": lambda created: created[User][0].user_id,
+                    "image_key": "some-key",
+                    "position": 0,
+                },
+                {
+                    "user_id": lambda created: created[User][0].user_id,
+                    "image_key": "some-other-key",
+                    "position": 1,
+                },
+            ],
+        }
+    ],
+    indirect=True,
+)
+@pytest.mark.parametrize("current_user_email", ["john@test.com"], indirect=True)
+def test_profile_update_info(client, db):
+    seeded_images = db.info["seeded"][UserImage]
+    img1, img2 = seeded_images[0], seeded_images[1]
+
+    response = client.post(
+        "/api/users/profile",
+        json={
+            "first_name": "Jonathan",
+            "bio": "Updated bio text",
+            "images": [
+                {"image_id": img1.image_id, "position": 1},
+                {"image_id": img2.image_id, "position": 0},
+            ],
+        },
+    )
+    assert response.status_code == 200
+    assert response.json()["first_name"] == "Jonathan"
+    assert response.json()["email"] == "john@test.com"
+    assert response.json()["bio"] == "Updated bio text"
+    assert response.json()["images"][0] == {
+        "image_id": img2.image_id,
+        "image_key": img2.image_key,
+        "position": img2.position,
+        "image_url": "https://fake-storage.test/some-other-key",
+    }
+    assert response.json()["images"][1] == {
+        "image_id": img1.image_id,
+        "image_key": img1.image_key,
+        "position": img1.position,
+        "image_url": "https://fake-storage.test/some-key",
+    }
+
+    updated_user = db.query(User).filter(User.email == "john@test.com").first()
+    assert updated_user.first_name == "Jonathan"
+    assert updated_user.bio == "Updated bio text"
+    assert img1.position == 1
+    assert img2.position == 0
+
+
+@pytest.mark.parametrize(
+    "db",
+    [
+        {
+            User: [
+                {
+                    "first_name": "John",
+                    "last_name": "Doe",
+                    "email": "john@test.com",
+                    "gender": "male",
+                    "interested_in": "female",
+                    "interests": ["sports"],
+                    "birthdate": date(1995, 6, 15),
+                }
+            ],
+            UserImage: [
+                {
+                    "user_id": lambda created: created[User][0].user_id,
+                    "image_key": "some-key",
+                    "position": 0,
+                },
+                {
+                    "user_id": lambda created: created[User][0].user_id,
+                    "image_key": "some-other-key",
+                    "position": 1,
+                },
+            ],
+        }
+    ],
+    indirect=True,
+)
+@pytest.mark.parametrize("current_user_email", ["john@test.com"], indirect=True)
+def test_profile_update_info_del_img(client, db):
+    seeded_images = db.info["seeded"][UserImage]
+    img1, img2 = seeded_images[0], seeded_images[1]
+
+    response = client.post(
+        "/api/users/profile",
+        json={"images": [], "deleted_images": [img1.image_id]},
+    )
+    assert response.status_code == 200
+    assert response.json()["email"] == "john@test.com"
+    assert len(response.json()["images"]) == 1
+    assert response.json()["images"][0] == {
+        "image_id": img2.image_id,
+        "image_key": img2.image_key,
+        "position": img2.position,
+        "image_url": "https://fake-storage.test/some-other-key",
+    }
+
+    response = client.post(
+        "/api/users/profile",
+        json={"images": [], "deleted_images": [img2.image_id]},
+    )
+
+    assert len(response.json()["images"]) == 0
+    assert response.json()["images"] == []
+
+
+@pytest.mark.parametrize(
+    "db",
+    [
+        {
+            User: [
+                {
+                    "first_name": "John",
+                    "last_name": "Doe",
+                    "email": "john@test.com",
+                    "gender": "male",
+                    "interested_in": "female",
+                    "interests": ["sports"],
+                    "birthdate": date(1995, 6, 15),
+                }
+            ]
+        }
+    ],
+    indirect=True,
+)
+@pytest.mark.parametrize("current_user_email", ["john@test.com"], indirect=True)
+def test_profile_upload_image(client, db):
+    response = client.post(
+        "/api/users/profile/upload-image",
+        files=[
+            ("files", ("test.png", io.BytesIO(make_test_png()), "image/png")),
+        ],
+    )
+
+    assert response.status_code == 200
+
+    body = response.json()
+    assert len(body["images"]) == 1
+
+    image = body["images"][0]
+    assert image["position"] == 0
+    assert image["image_key"].startswith(f"users/{body['user_id']}/images/")
+    assert image["image_key"].endswith(".png")
+    assert image["image_url"] == f"https://fake-storage.test/{image['image_key']}"
+
+    updated_user = db.query(User).filter(User.email == "john@test.com").first()
+    assert len(updated_user.images) == 1
+    assert updated_user.images[0].image_key == image["image_key"]
+    assert updated_user.images[0].position == 0
+
+
+@pytest.mark.parametrize(
+    "db",
+    [
+        {
+            User: [
+                {
+                    "first_name": "John",
+                    "last_name": "Doe",
+                    "email": "john@test.com",
+                    "gender": "male",
+                    "interested_in": "female",
+                    "interests": ["sports"],
+                    "birthdate": date(1995, 6, 15),
+                }
+            ]
+        }
+    ],
+    indirect=True,
+)
+@pytest.mark.parametrize("current_user_email", ["john@test.com"], indirect=True)
+def test_upload_multiple_images(client, db):
+    response = client.post(
+        "/api/users/profile/upload-image",
+        files=[
+            ("files", ("first.png", io.BytesIO(make_test_png()), "image/png")),
+            ("files", ("second.png", io.BytesIO(make_test_png()), "image/png")),
+            ("files", ("third.png", io.BytesIO(make_test_png()), "image/png")),
+        ],
+    )
+
+    assert response.status_code == 200
+
+    body = response.json()
+    assert len(body["images"]) == 3
+
+    positions = sorted(img["position"] for img in body["images"])
+    assert positions == [0, 1, 2]
+
+    keys = {img["image_key"] for img in body["images"]}
+    assert len(keys) == 3
+
+    updated_user = db.query(User).filter(User.email == "john@test.com").first()
+    assert len(updated_user.images) == 3
+
+
+@pytest.mark.parametrize(
+    "db",
+    [
+        {
+            User: [
+                {
+                    "first_name": "John",
+                    "last_name": "Doe",
+                    "email": "john@test.com",
+                    "gender": "male",
+                    "interested_in": "female",
+                    "interests": ["sports"],
+                    "birthdate": date(1995, 6, 15),
+                }
+            ]
+        }
+    ],
+    indirect=True,
+)
+@pytest.mark.parametrize("current_user_email", ["john@test.com"], indirect=True)
+@pytest.mark.parametrize(
+    "filename, content, content_type, expected_error",
+    [
+        (
+            "test.txt",
+            b"this is definitely not an image file",
+            "text/plain",
+            "Image type not allowed.",
+        ),
+        ("empty.png", b"", "image/png", "Empty file provided."),
+        (
+            "big.png",
+            b"a" * (conf.MAX_IMAGE_SIZE + 1),
+            "image/png",
+            "File too large.",
+        ),
+    ],
+)
+def test_upload_image_invalid_cases(
+    client, db, filename, content, content_type, expected_error
+):
+    response = client.post(
+        "/api/users/profile/upload-image",
+        files=[("files", (filename, io.BytesIO(content), content_type))],
+    )
+
+    assert response.status_code == 400
+    assert expected_error in response.json()["detail"]
+
+    updated_user = db.query(User).filter(User.email == "john@test.com").first()
+    assert len(updated_user.images) == 0
+
+
+@pytest.mark.parametrize(
+    "db",
+    [
+        {
+            User: [
+                {
+                    "first_name": "John",
+                    "last_name": "Doe",
+                    "email": "john@test.com",
+                    "gender": "male",
+                    "interested_in": "female",
+                    "interests": ["sports"],
+                    "birthdate": date(1995, 6, 15),
+                }
+            ],
+            UserImage: [
+                {
+                    "user_id": lambda created: created[User][0].user_id,
+                    "image_key": f"seed-key-{i}",
+                    "position": i,
+                }
+                for i in range(conf.MAX_IMAGES)
+            ],
+        }
+    ],
+    indirect=True,
+)
+@pytest.mark.parametrize("current_user_email", ["john@test.com"], indirect=True)
+def test_upload_image_exceeds_max_count(client, db):
+    response = client.post(
+        "/api/users/profile/upload-image",
+        files=[("files", ("test.png", io.BytesIO(make_test_png()), "image/png"))],
+    )
+
+    assert response.status_code == 400
+    assert f"Maximum of {conf.MAX_IMAGES} images allowed" in response.json()["detail"]
+
+    updated_user = db.query(User).filter(User.email == "john@test.com").first()
+    assert len(updated_user.images) == conf.MAX_IMAGES
