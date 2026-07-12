@@ -1,6 +1,9 @@
 import pytest
 
 from testcontainers.postgres import PostgresContainer
+from testcontainers.redis import RedisContainer
+import redis.asyncio as aioredis
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -11,6 +14,7 @@ from hang.main import app
 from hang.core.database import get_db
 from hang.core.storage import get_storage
 from hang.helpers.users import get_current_user
+import hang.helpers.ws as ws_helpers
 from hang.models.db_models import Base, User
 from hang.schemas.config import conf
 
@@ -110,3 +114,27 @@ def client(db, current_user_email):
     yield client
 
     app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def anyio_backend():
+    return "asyncio"
+
+
+@pytest.fixture(scope="session")
+def redis_container():
+    with RedisContainer("redis:7-alpine") as redis:
+        yield redis
+
+
+@pytest.fixture
+def test_redis_client(redis_container, monkeypatch):
+    rc = aioredis.Redis(
+        host=redis_container.get_container_host_ip(),
+        port=int(redis_container.get_exposed_port(6379)),
+        decode_responses=True,  # redis_subscriber does json.loads(message["data"]), needs str not bytes
+    )
+
+    monkeypatch.setattr(ws_helpers, "redis_client", rc)
+
+    yield rc

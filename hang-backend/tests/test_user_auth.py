@@ -1,10 +1,10 @@
 import pytest
-from datetime import date
 from unittest.mock import AsyncMock, patch
 from fastapi.responses import RedirectResponse
 
 from hang.models.db_models import User
 from hang.helpers.auth import hash_password
+from tests.utils import make_user_row
 
 
 def test_register_success(client, db):
@@ -38,15 +38,15 @@ def test_register_success(client, db):
     [
         {
             User: [
-                {
-                    "first_name": "Existing",
-                    "last_name": "User",
-                    "email": "taken@test.com",
-                    "gender": "male",
-                    "interested_in": "female",
-                    "interests": ["sports"],
-                    "birthdate": date(1995, 6, 15),
-                }
+                make_user_row(
+                    "taken@test.com",
+                    "Existing",
+                    password=hash_password("test123"),
+                    country="DE",
+                    interests=["sports"],
+                    gender="male",
+                    interested_in="female",
+                ),
             ]
         }
     ],
@@ -103,16 +103,15 @@ def test_register_email_case_insensitive(client, db):
     [
         {
             User: [
-                {
-                    "first_name": "John",
-                    "last_name": "Doe",
-                    "email": "john@test.com",
-                    "password": hash_password("test123"),
-                    "gender": "male",
-                    "interested_in": "female",
-                    "interests": ["sports"],
-                    "birthdate": date(1995, 6, 15),
-                }
+                make_user_row(
+                    "john@test.com",
+                    "John",
+                    password=hash_password("test123"),
+                    country="DE",
+                    interests=["sports"],
+                    gender="male",
+                    interested_in="female",
+                ),
             ]
         }
     ],
@@ -216,18 +215,17 @@ def test_google_callback_creates_user(client, db):
     [
         {
             User: [
-                {
-                    "email": "google@test.com",
-                    "first_name": "Old",
-                    "last_name": "Name",
-                    "auth_provider": "google",
-                    "oauth_id": "old-id",
-                    "gender": "male",
-                    "interested_in": "female",
-                    "interests": [],
-                    "birthdate": date(1995, 6, 15),
-                }
-            ]
+                make_user_row(
+                    "google@test.com",
+                    "Old",
+                    auth_provider="google",
+                    oauth_id="old-id",
+                    country="DE",
+                    interests=["sports", "music"],
+                    gender="male",
+                    interested_in="female",
+                )
+            ],
         }
     ],
     indirect=True,

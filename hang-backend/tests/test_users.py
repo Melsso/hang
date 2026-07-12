@@ -1,10 +1,10 @@
 import pytest
 import io
 from PIL import Image
-from datetime import date
 
 from hang.models.db_models import User, Conversation, UserReport, UserBlock, UserImage
 from hang.schemas.config import conf
+from tests.utils import make_user_row
 
 
 def make_test_png() -> bytes:
@@ -19,15 +19,14 @@ def make_test_png() -> bytes:
     [
         {
             User: [
-                {
-                    "first_name": "John",
-                    "last_name": "Doe",
-                    "email": "john@test.com",
-                    "gender": "male",
-                    "interested_in": "female",
-                    "interests": ["sports"],
-                    "birthdate": date(1995, 6, 15),
-                }
+                make_user_row(
+                    "john@test.com",
+                    "John",
+                    country="DE",
+                    interests=["sports", "music"],
+                    gender="male",
+                    interested_in="female",
+                )
             ]
         }
     ],
@@ -44,15 +43,14 @@ def test_profile(client, db):
     [
         {
             User: [
-                {
-                    "first_name": "John",
-                    "last_name": "Doe",
-                    "email": "john@test.com",
-                    "gender": "male",
-                    "interested_in": "female",
-                    "interests": ["sports"],
-                    "birthdate": date(1995, 6, 15),
-                }
+                make_user_row(
+                    "john@test.com",
+                    "John",
+                    country="DE",
+                    interests=["sports"],
+                    gender="male",
+                    interested_in="female",
+                )
             ]
         }
     ],
@@ -70,24 +68,22 @@ def test_profile_as_specific_single_user(client, db):
     [
         {
             User: [
-                {
-                    "first_name": "John",
-                    "last_name": "Doe",
-                    "email": "john@test.com",
-                    "gender": "male",
-                    "interested_in": "female",
-                    "interests": ["sports"],
-                    "birthdate": date(1995, 6, 15),
-                },
-                {
-                    "first_name": "Jane",
-                    "last_name": "Smith",
-                    "email": "jane@test.com",
-                    "gender": "female",
-                    "interested_in": "male",
-                    "interests": ["music", "hiking"],
-                    "birthdate": date(1995, 6, 15),
-                },
+                make_user_row(
+                    "john@test.com",
+                    "John",
+                    country="DE",
+                    interests=["sports"],
+                    gender="male",
+                    interested_in="female",
+                ),
+                make_user_row(
+                    "jane@test.com",
+                    "Jane",
+                    country="DE",
+                    interests=["music", "hiking"],
+                    gender="female",
+                    interested_in="male",
+                ),
             ]
         }
     ],
@@ -104,24 +100,22 @@ def test_profile_multiple_users(client, db):
     [
         {
             User: [
-                {
-                    "first_name": "John",
-                    "last_name": "Doe",
-                    "email": "john@test.com",
-                    "gender": "male",
-                    "interested_in": "female",
-                    "interests": ["sports"],
-                    "birthdate": date(1995, 6, 15),
-                },
-                {
-                    "first_name": "Jane",
-                    "last_name": "Smith",
-                    "email": "jane@test.com",
-                    "gender": "female",
-                    "interested_in": "male",
-                    "interests": ["music"],
-                    "birthdate": date(1995, 6, 15),
-                },
+                make_user_row(
+                    "john@test.com",
+                    "John",
+                    country="DE",
+                    interests=["sports"],
+                    gender="male",
+                    interested_in="female",
+                ),
+                make_user_row(
+                    "jane@test.com",
+                    "Jane",
+                    country="DE",
+                    interests=["music"],
+                    gender="female",
+                    interested_in="male",
+                ),
             ]
         }
     ],
@@ -139,24 +133,22 @@ def test_profile_as_specific_user(client, db):
     [
         {
             User: [
-                {
-                    "first_name": "John",
-                    "last_name": "Doe",
-                    "email": "john@test.com",
-                    "gender": "male",
-                    "interested_in": "female",
-                    "interests": ["sports"],
-                    "birthdate": date(1995, 6, 15),
-                },
-                {
-                    "first_name": "Jane",
-                    "last_name": "Smith",
-                    "email": "jane@test.com",
-                    "gender": "female",
-                    "interested_in": "male",
-                    "interests": ["music"],
-                    "birthdate": date(1995, 6, 15),
-                },
+                make_user_row(
+                    "john@test.com",
+                    "John",
+                    country="DE",
+                    interests=["sports"],
+                    gender="male",
+                    interested_in="female",
+                ),
+                make_user_row(
+                    "jane@test.com",
+                    "Jane",
+                    country="DE",
+                    interests=["music"],
+                    gender="female",
+                    interested_in="male",
+                ),
             ]
         }
     ],
@@ -175,24 +167,22 @@ def test_other_profile_no_match(client, db):
     [
         {
             User: [
-                {
-                    "first_name": "John",
-                    "last_name": "Doe",
-                    "email": "john@test.com",
-                    "gender": "male",
-                    "interested_in": "female",
-                    "interests": ["sports"],
-                    "birthdate": date(1995, 6, 15),
-                },
-                {
-                    "first_name": "Jane",
-                    "last_name": "Smith",
-                    "email": "jane@test.com",
-                    "gender": "female",
-                    "interested_in": "male",
-                    "interests": ["music"],
-                    "birthdate": date(1995, 6, 15),
-                },
+                make_user_row(
+                    "john@test.com",
+                    "John",
+                    country="DE",
+                    interests=["sports"],
+                    gender="male",
+                    interested_in="female",
+                ),
+                make_user_row(
+                    "jane@test.com",
+                    "Jane",
+                    country="DE",
+                    interests=["music"],
+                    gender="female",
+                    interested_in="male",
+                ),
             ],
             Conversation: [
                 {
@@ -218,24 +208,22 @@ def test_other_profile_with_match(client, db):
     [
         {
             User: [
-                {
-                    "first_name": "John",
-                    "last_name": "Doe",
-                    "email": "john@test.com",
-                    "gender": "male",
-                    "interested_in": "female",
-                    "interests": ["sports"],
-                    "birthdate": date(1995, 6, 15),
-                },
-                {
-                    "first_name": "Jane",
-                    "last_name": "Smith",
-                    "email": "jane@test.com",
-                    "gender": "female",
-                    "interested_in": "male",
-                    "interests": ["music"],
-                    "birthdate": date(1995, 6, 15),
-                },
+                make_user_row(
+                    "john@test.com",
+                    "John",
+                    country="DE",
+                    interests=["sports"],
+                    gender="male",
+                    interested_in="female",
+                ),
+                make_user_row(
+                    "jane@test.com",
+                    "Jane",
+                    country="DE",
+                    interests=["music"],
+                    gender="female",
+                    interested_in="male",
+                ),
             ],
             Conversation: [
                 {
@@ -266,24 +254,22 @@ def test_other_profile_blocked(client, db):
     [
         {
             User: [
-                {
-                    "first_name": "John",
-                    "last_name": "Doe",
-                    "email": "john@test.com",
-                    "gender": "male",
-                    "interested_in": "female",
-                    "interests": ["sports"],
-                    "birthdate": date(1995, 6, 15),
-                },
-                {
-                    "first_name": "Jane",
-                    "last_name": "Smith",
-                    "email": "jane@test.com",
-                    "gender": "female",
-                    "interested_in": "male",
-                    "interests": ["music"],
-                    "birthdate": date(1995, 6, 15),
-                },
+                make_user_row(
+                    "john@test.com",
+                    "John",
+                    country="DE",
+                    interests=["sports"],
+                    gender="male",
+                    interested_in="female",
+                ),
+                make_user_row(
+                    "jane@test.com",
+                    "Jane",
+                    country="DE",
+                    interests=["music"],
+                    gender="female",
+                    interested_in="male",
+                ),
             ],
             Conversation: [
                 {
@@ -316,15 +302,14 @@ def test_other_profile_reported(client, db):
     [
         {
             User: [
-                {
-                    "first_name": "John",
-                    "last_name": "Doe",
-                    "email": "john@test.com",
-                    "gender": "male",
-                    "interested_in": "female",
-                    "interests": ["sports"],
-                    "birthdate": date(1995, 6, 15),
-                }
+                make_user_row(
+                    "john@test.com",
+                    "John",
+                    country="DE",
+                    interests=["sports"],
+                    gender="male",
+                    interested_in="female",
+                ),
             ],
             UserImage: [
                 {
@@ -387,15 +372,14 @@ def test_profile_update_info(client, db):
     [
         {
             User: [
-                {
-                    "first_name": "John",
-                    "last_name": "Doe",
-                    "email": "john@test.com",
-                    "gender": "male",
-                    "interested_in": "female",
-                    "interests": ["sports"],
-                    "birthdate": date(1995, 6, 15),
-                }
+                make_user_row(
+                    "john@test.com",
+                    "John",
+                    country="DE",
+                    interests=["sports"],
+                    gender="male",
+                    interested_in="female",
+                ),
             ],
             UserImage: [
                 {
@@ -446,15 +430,14 @@ def test_profile_update_info_del_img(client, db):
     [
         {
             User: [
-                {
-                    "first_name": "John",
-                    "last_name": "Doe",
-                    "email": "john@test.com",
-                    "gender": "male",
-                    "interested_in": "female",
-                    "interests": ["sports"],
-                    "birthdate": date(1995, 6, 15),
-                }
+                make_user_row(
+                    "john@test.com",
+                    "John",
+                    country="DE",
+                    interests=["sports"],
+                    gender="male",
+                    interested_in="female",
+                ),
             ]
         }
     ],
@@ -491,15 +474,14 @@ def test_profile_upload_image(client, db):
     [
         {
             User: [
-                {
-                    "first_name": "John",
-                    "last_name": "Doe",
-                    "email": "john@test.com",
-                    "gender": "male",
-                    "interested_in": "female",
-                    "interests": ["sports"],
-                    "birthdate": date(1995, 6, 15),
-                }
+                make_user_row(
+                    "john@test.com",
+                    "John",
+                    country="DE",
+                    interests=["sports"],
+                    gender="male",
+                    interested_in="female",
+                ),
             ]
         }
     ],
@@ -536,15 +518,14 @@ def test_upload_multiple_images(client, db):
     [
         {
             User: [
-                {
-                    "first_name": "John",
-                    "last_name": "Doe",
-                    "email": "john@test.com",
-                    "gender": "male",
-                    "interested_in": "female",
-                    "interests": ["sports"],
-                    "birthdate": date(1995, 6, 15),
-                }
+                make_user_row(
+                    "john@test.com",
+                    "John",
+                    country="DE",
+                    interests=["sports"],
+                    gender="male",
+                    interested_in="female",
+                ),
             ]
         }
     ],
@@ -589,15 +570,14 @@ def test_upload_image_invalid_cases(
     [
         {
             User: [
-                {
-                    "first_name": "John",
-                    "last_name": "Doe",
-                    "email": "john@test.com",
-                    "gender": "male",
-                    "interested_in": "female",
-                    "interests": ["sports"],
-                    "birthdate": date(1995, 6, 15),
-                }
+                make_user_row(
+                    "john@test.com",
+                    "John",
+                    country="DE",
+                    interests=["sports"],
+                    gender="male",
+                    interested_in="female",
+                ),
             ],
             UserImage: [
                 {
