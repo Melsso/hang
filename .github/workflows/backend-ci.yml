@@ -20,6 +20,28 @@ jobs:
   lint-and-test:
     runs-on: ubuntu-latest
 
+    env:
+      DB_USER: ci
+      DB_PASSWORD: ci
+      DB_NAME: ci
+      DB_HOST: localhost
+      DB_PORT: "5432"
+      REDIS_HOST: localhost
+      REDIS_PORT: "6379"
+      SECRET_KEY: ci-secret-key
+      ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES: "30"
+      MAX_IMAGES: "6"
+      MAX_IMAGE_SIZE: "5000000"
+      ALLOWED_IMAGE_TYPES: "png,jpeg,jpg"
+      R2_ACCESS_KEY_ID: ci
+      R2_SECRET_ACCESS_KEY: ci
+      R2_BUCKET_NAME: ci-bucket
+      R2_ENDPOINT: "https://example.test"
+      GOOGLE_CLIENT_ID: ci
+      GOOGLE_CLIENT_SECRET: ci
+      GOOGLE_REDIRECT_URI: "https://example.test/callback"
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
