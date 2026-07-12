@@ -39,7 +39,9 @@ hang-backend/
 │       ├── schemas/
 │       ├── models/
 │       └── main.py
+│
 ├── tests/
+├── smoke_tests/
 │
 ├── Dockerfile.hang
 ├── logging.json
