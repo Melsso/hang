@@ -1,6 +1,7 @@
 import { motion, useMotionValue, useTransform, animate } from "framer-motion";
 import { useState, useEffect } from "react";
 import type { ProfileImage } from "../profile/ProfileImagePanel";
+import defaultUserImage from "../../assets/default_user.png";
 
 export type SwipeProfile = {
     user_id: number;
@@ -16,6 +17,8 @@ type ProfileCardProps = {
     onSwipe?: (dir: "like" | "pass" | "super-like") => void;
 };
 
+const DEFAULT_IMAGE_URL = defaultUserImage;
+
 export default function ProfileCard({ profile, onSwipe }: ProfileCardProps) {
     const x = useMotionValue(0);
     const y = useMotionValue(0);
@@ -27,8 +30,9 @@ export default function ProfileCard({ profile, onSwipe }: ProfileCardProps) {
     useEffect(() => {
         setSelectedIndex(0);
     }, [profile?.user_id]);
-    
+
     const imageCount = profile?.images?.length || 0;
+    const hasImages = imageCount > 0;
 
     const prevImage = () => {
         if (imageCount <= 1) return;
@@ -79,18 +83,18 @@ export default function ProfileCard({ profile, onSwipe }: ProfileCardProps) {
             }}
         >
             <div className="relative w-3/5 h-96 bg-black">
-                {profile?.images?.[0] ? (
+                {isEmpty ? (
+                    <div className="w-full h-full flex items-center justify-center bg-[#111] text-white/40 text-sm">
+                        No more profiles
+                    </div>
+                ) : (
                     <img
-                        src={profile.images[selectedIndex].image_url}
+                        src={hasImages ? profile.images[selectedIndex].image_url : DEFAULT_IMAGE_URL}
                         className="w-full h-full object-cover"
                         alt={profile.first_name}
                     />
-                ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-[#111] text-white/40 text-sm">
-                        {isEmpty ? "No more profiles" : "No Image Available"}
-                    </div>
                 )}
-                {imageCount > 1 && (
+                {hasImages && imageCount > 1 && (
                     <>
                         <button
                             type="button"

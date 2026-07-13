@@ -4,11 +4,14 @@ import type { DragEndEvent } from "@dnd-kit/core";
 import { arrayMove, SortableContext, verticalListSortingStrategy, useSortable } from "@dnd-kit/sortable";
 
 import { CSS } from "@dnd-kit/utilities";
+import defaultUserImage from "../../assets/default_user.png"
 
 export type ProfileImage = {
     image_id: number;
     image_url: string;
 };
+
+const DEFAULT_IMAGE_URL = defaultUserImage;
 
 type Props = {
     images: ProfileImage[];
@@ -91,7 +94,8 @@ function SortItem({
 export default function ProfileImagePanel({ images, imageOrder, setImageOrder, deletedImages, setDeletedImages, editMode, canEdit, onUploadImages }: Props) {
     const [selectedIndex, setSelectedIndex] = useState(0);
     const activeImages = editMode ? imageOrder : images;
-    const featured = activeImages[selectedIndex];
+    const hasImages = activeImages.length > 0;
+    const featured = hasImages ? activeImages[selectedIndex] : null;
     const prev = () => setSelectedIndex((p) => p === 0 ? activeImages.length - 1 : p - 1);
     const next = () => setSelectedIndex((p) => p === activeImages.length - 1 ? 0 : p + 1);
 
@@ -114,14 +118,12 @@ export default function ProfileImagePanel({ images, imageOrder, setImageOrder, d
 
             {!editMode && (
                 <div className="w-full h-8/10 relative bg-black">
-                    {featured && (
-                        <img
-                            src={featured.image_url}
-                            className="h-full w-full p-2 object-cover"
-                        />
-                    )}
+                    <img
+                        src={hasImages ? featured!.image_url : DEFAULT_IMAGE_URL}
+                        className="h-full w-full p-2 object-cover"
+                    />
 
-                    {images.length > 1 && (
+                    {hasImages && activeImages.length > 1 && (
                         <>
                             <button
                                 onClick={prev}
@@ -144,28 +146,36 @@ export default function ProfileImagePanel({ images, imageOrder, setImageOrder, d
             {editMode && (
                 <div className="flex flex-col gap-3 p-4 overflow-y-auto">
 
-                    <DndContext
-                        collisionDetection={closestCenter}
-                        onDragEnd={handleDragEnd}
-                    >
-                        <SortableContext
-                            items={imageOrder.map((i) => i.image_id)}
-                            strategy={verticalListSortingStrategy}
+                    {imageOrder.length === 0 ? (
+                        <p className="text-sm text-white/40 text-center py-6">
+                            No images yet
+                        </p>
+                    ) : (
+                        <DndContext
+                            collisionDetection={closestCenter}
+                            onDragEnd={handleDragEnd}
                         >
-                            {imageOrder.map((img) => (
-                                <SortItem
-                                    key={img.image_id}
-                                    image={img}
-                                    deleted={deletedImages.includes(img.image_id)}
-                                    onToggleDelete={toggleDelete}
-                                />
-                            ))}
-                        </SortableContext>
-                    </DndContext>
+                            <SortableContext
+                                items={imageOrder.map((i) => i.image_id)}
+                                strategy={verticalListSortingStrategy}
+                            >
+                                {imageOrder.map((img) => (
+                                    <SortItem
+                                        key={img.image_id}
+                                        image={img}
+                                        deleted={deletedImages.includes(img.image_id)}
+                                        onToggleDelete={toggleDelete}
+                                    />
+                                ))}
+                            </SortableContext>
+                        </DndContext>
+                    )}
 
-                    <p className="text-xs text-white/40">
-                        Drag to reorder images
-                    </p>
+                    {imageOrder.length > 0 && (
+                        <p className="text-xs text-white/40">
+                            Drag to reorder images
+                        </p>
+                    )}
                 </div>
             )}
 
