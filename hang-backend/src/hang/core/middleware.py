@@ -12,7 +12,16 @@ from hang.schemas.config import conf
 
 
 logger = logging.getLogger("Hang")
-limiter = Limiter(key_func=get_remote_address)
+
+
+def rate_limit_key(request: Request) -> str:
+    user_id = getattr(request.state, "user_id", None)
+    if user_id is not None:
+        return f"user:{user_id}"
+    return get_remote_address(request)
+
+
+limiter = Limiter(key_func=rate_limit_key)
 
 
 def register_middleware(app):

@@ -41,6 +41,7 @@ def get_current_user(request: Request, db: Annotated[Session, Depends(get_db)]) 
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
 
+        request.state.user_id = user.user_id
         return user
 
     except JWTError:
