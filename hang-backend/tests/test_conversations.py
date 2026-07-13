@@ -1,6 +1,13 @@
 import pytest
 
-from hang.models.db_models import User, Conversation, Message, UserImage, UserBlock
+from hang.models.db_models import (
+    User,
+    Conversation,
+    Message,
+    UserImage,
+    UserBlock,
+    Swipe,
+)
 from tests.utils import make_user_row
 
 
@@ -298,3 +305,174 @@ def test_messages_not_your_conversation(client, db):
         "redirect_url": "/api/swipes/home",
         "reason": "no_conversation_access",
     }
+
+
+@pytest.mark.parametrize(
+    "db",
+    [
+        {
+            User: [
+                make_user_row("john@test.com", "John"),
+                make_user_row("jane@test.com", "Jane"),
+            ],
+            Conversation: [
+                {
+                    "user1_id": lambda created: created[User][0].user_id,
+                    "user2_id": lambda created: created[User][1].user_id,
+                },
+            ],
+            Swipe: [
+                {
+                    "from_user_id": lambda created: created[User][0].user_id,
+                    "to_user_id": lambda created: created[User][1].user_id,
+                    "swipe_type": "like",
+                },
+                {
+                    "from_user_id": lambda created: created[User][1].user_id,
+                    "to_user_id": lambda created: created[User][0].user_id,
+                    "swipe_type": "like",
+                },
+            ],
+            Message: [
+                {
+                    "conversation_id": lambda created: (
+                        created[Conversation][0].conversation_id
+                    ),
+                    "sender_id": lambda created: created[User][1].user_id,
+                    "content": "hey!",
+                    "is_read": False,
+                },
+            ],
+        }
+    ],
+    indirect=True,
+)
+@pytest.mark.parametrize("current_user_email", ["john@test.com"], indirect=True)
+def test_delete_conversation_success(client, db):
+    conversation = db.info["seeded"][Conversation][0]
+    conversation_id = conversation.conversation_id
+    john = db.info["seeded"][User][0]
+    jane = db.info["seeded"][User][1]
+
+    response = client.post(f"/api/conversations/delete/{conversation_id}")
+
+    assert response.status_code == 204
+    assert response.content == b""
+
+    assert (
+        db.query(Conversation)
+        .filter(Conversation.conversation_id == conversation_id)
+        .first()
+        is None
+    )
+
+    remaining_swipes = (
+        db.query(Swipe)
+        .filter(
+            Swipe.from_user_id.in_([john.user_id, jane.user_id]),
+            Swipe.to_user_id.in_([john.user_id, jane.user_id]),
+        )
+        .all()
+    )
+    assert remaining_swipes == []
+
+
+@pytest.mark.parametrize(
+    "db",
+    [
+        {
+            User: [
+                make_user_row("john@test.com", "John"),
+            ],
+        }
+    ],
+    indirect=True,
+)
+@pytest.mark.parametrize("current_user_email", ["john@test.com"], indirect=True)
+def test_delete_conversation_not_found(client, db):
+    response = client.post("/api/conversations/delete/999999")
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Conversation not found"
+
+
+@pytest.mark.parametrize(
+    "db",
+    [
+        {
+            User: [
+                make_user_row("john@test.com", "John"),
+                make_user_row("jane@test.com", "Jane"),
+                make_user_row("alice@test.com", "Alice"),
+            ],
+            Conversation: [
+                {
+                    "user1_id": lambda created: created[User][1].user_id,
+                    "user2_id": lambda created: created[User][2].user_id,
+                },
+            ],
+        }
+    ],
+    indirect=True,
+)
+@pytest.mark.parametrize("current_user_email", ["john@test.com"], indirect=True)
+def test_delete_conversation_forbidden(client, db):
+    conversation = db.info["seeded"][Conversation][0]
+    conversation_id = conversation.conversation_id
+
+    response = client.post(f"/api/conversations/delete/{conversation_id}")
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Not authorized to delete this conversation"
+
+    assert (
+        db.query(Conversation)
+        .filter(Conversation.conversation_id == conversation_id)
+        .first()
+        is not None
+    )
+
+
+@pytest.mark.parametrize(
+    "db",
+    [
+        {
+            User: [
+                make_user_row("john@test.com", "John"),
+                make_user_row("jane@test.com", "Jane"),
+                make_user_row("alice@test.com", "Alice"),
+            ],
+            Conversation: [
+                {
+                    "user1_id": lambda created: created[User][0].user_id,
+                    "user2_id": lambda created: created[User][1].user_id,
+                },
+                {
+                    "user1_id": lambda created: created[User][0].user_id,
+                    "user2_id": lambda created: created[User][2].user_id,
+                },
+            ],
+        }
+    ],
+    indirect=True,
+)
+@pytest.mark.parametrize("current_user_email", ["john@test.com"], indirect=True)
+def test_delete_conversation_only_removes_target(client, db):
+    target = db.info["seeded"][Conversation][0]
+    other = db.info["seeded"][Conversation][1]
+
+    response = client.post(f"/api/conversations/delete/{target.conversation_id}")
+
+    assert response.status_code == 204
+    assert (
+        db.query(Conversation)
+        .filter(Conversation.conversation_id == target.conversation_id)
+        .first()
+        is None
+    )
+    assert (
+        db.query(Conversation)
+        .filter(Conversation.conversation_id == other.conversation_id)
+        .first()
+        is not None
+    )
