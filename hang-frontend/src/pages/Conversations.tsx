@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { get_user_conversations, get_conversation_messages } from "../api/conversations";
+import { get_user_conversations, get_conversation_messages, delete_conversation } from "../api/conversations";
 import { useConversationsSocket } from "../api/useConversationSocket";
 import { useToast } from "../components/global/ToastProvider";
 
@@ -139,6 +139,35 @@ export default function Conversations() {
         });
     };
 
+    const handleDeleteConversation = async (conv: Conversation) => {
+        const previousConversations = conversations;
+        const wasActive = activeConversationRef.current === conv.conversation_id;
+
+        setConversations((prev) =>
+            prev?.filter((c) => c.conversation_id !== conv.conversation_id) ?? null
+        );
+
+        if (wasActive) {
+            activeConversationRef.current = null;
+            setSelectedConversation(null);
+            setMessageData(null);
+        }
+
+        try {
+            const ok = await delete_conversation(conv.conversation_id);
+            if (!ok) {
+                showToast("Could not delete conversation, try again later.", "error");
+                setConversations(previousConversations);
+            }
+            else{
+                showToast("Conversation deleted", "success")
+            }
+        } catch {
+            showToast("Could not delete conversation, try again later.", "error");
+            setConversations(previousConversations);
+        }
+    };
+
     const handleSend = (text: string) => {
         if (!selectedConversation) return;
         send({
@@ -194,6 +223,7 @@ export default function Conversations() {
                     onSelect={
                         handleSelectConversation
                     }
+                    onDelete={handleDeleteConversation}
                 />
 
                 <ChatCard

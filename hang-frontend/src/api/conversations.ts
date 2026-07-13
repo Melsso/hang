@@ -17,3 +17,16 @@ export async function get_conversation_messages(conv_id: number, cursor?: number
     if (!res.ok) return null;
     return res.json();
 }
+
+export async function delete_conversation(conversationId: number): Promise<boolean> {
+    const res = await fetch(`/api/conversations/delete/${conversationId}`, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify({conversation_id: conversationId}),
+    });
+    if (!res.ok) return false;
+    return true;
+}

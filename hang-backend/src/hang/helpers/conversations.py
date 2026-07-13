@@ -2,12 +2,16 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session, aliased
 from sqlalchemy import or_, and_
 from typing import Optional
+import logging
 
 from hang.schemas.conversations import ConversationPreview
-from hang.models.db_models import User, Conversation, Message, UserBlock
+from hang.models.db_models import User, Conversation, Message, UserBlock, Swipe
 
 from hang.core.storage import StorageService
 from hang.helpers.users import is_blocked
+
+
+logger = logging.getLogger("Hang")
 
 
 def fetch_conversations_list(
@@ -191,3 +195,49 @@ def verify_conversation(db: Session, user1_id: int, user2_id: int) -> bool:
         .first()
         is not None
     )
+
+
+def delete_conversation(db: Session, conversation_id: int, user_id: int):
+    conversation = (
+        db.query(Conversation)
+        .filter(Conversation.conversation_id == conversation_id)
+        .first()
+    )
+    if not conversation:
+        return 404, "Conversation not found"
+    if user_id not in (conversation.user1_id, conversation.user2_id):
+        return 403, "Not authorized to delete this conversation"
+
+    try:
+        db.query(Swipe).filter(
+            or_(
+                and_(
+                    Swipe.from_user_id == conversation.user1_id,
+                    Swipe.to_user_id == conversation.user2_id,
+                ),
+                and_(
+                    Swipe.from_user_id == conversation.user2_id,
+                    Swipe.to_user_id == conversation.user1_id,
+                ),
+            )
+        ).delete(synchronize_session=False)
+        db.delete(conversation)
+        db.commit()
+        return 204, "Conversation deleted"
+    except Exception as exc:
+        db.rollback()
+        logger.error(
+            "hang_event",
+            extra={
+                "event": "db_conversation_delete",
+                "status": "failed",
+                "error_type": type(exc).__name__,
+                "error_message": str(exc),
+                "context": {
+                    "location": "delete_conversation",
+                    "user_id": user_id,
+                    "conversation_id": conversation_id,
+                },
+            },
+        )
+        return 500, "Could not delete conversation"

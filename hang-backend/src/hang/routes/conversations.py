@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, Response, HTTPException
 from sqlalchemy.orm import Session
 from typing import Annotated, Optional
 
@@ -17,6 +17,7 @@ from hang.helpers.messages import (
 from hang.helpers.conversations import (
     fetch_conversations_list,
     get_user_conversation,
+    delete_conversation,
 )
 
 conversation_router = APIRouter(prefix="/conversations", tags=["conversations"])
@@ -31,8 +32,24 @@ def conversations_get(
     storage: Annotated[StorageService, Depends(get_storage)],
 ):
     conv_lst = fetch_conversations_list(db=db, user_id=user.user_id, storage=storage)
-
     return conv_lst
+
+
+@conversation_router.post("/delete/{conversation_id}")
+@limiter.limit("5/minute")
+def conversation_delete(
+    request: Request,
+    conversation_id: int,
+    db: Annotated[Session, Depends(get_db)],
+    user: Annotated[User, Depends(get_current_user)],
+):
+    code, detail = delete_conversation(
+        db=db, conversation_id=conversation_id, user_id=user.user_id
+    )
+    if code != 204:
+        raise HTTPException(status_code=code, detail=detail)
+
+    return Response(status_code=204)
 
 
 @conversation_router.get(
