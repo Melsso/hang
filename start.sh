@@ -32,7 +32,7 @@ else
   else
     if ! docker image inspect $REDIS_IMAGE >/dev/null 2>&1; then
       echo "Redis image missing. Building..."
-      docker build -f ../Dockerfile.redis -t $REDIS_IMAGE ..
+      docker build -f infra/Dockerfile.redis -t $REDIS_IMAGE infra
     fi
 
     echo "Creating Redis container..."
@@ -51,7 +51,7 @@ else
   else
     if ! docker image inspect $DB_IMAGE >/dev/null 2>&1; then
       echo "DB image missing. Building..."
-      docker build -f ../Dockerfile.db -t $DB_IMAGE .. 
+      docker build -f infra/Dockerfile.db -t $DB_IMAGE infra
     fi
 
     echo "Creating Postgres container..."
