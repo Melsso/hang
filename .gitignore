@@ -4,6 +4,10 @@
 !.env.example
 hang-backend/.api_env
 hang-backend/.db_env
+hang-backend/dev_utils/inject_data.py
+
+load_test_results.json
+load_test_users.json
 
 hang-frontend/node_modules/
 hang-frontend/dist/

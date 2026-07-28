@@ -251,6 +251,18 @@ async def redis_subscriber():
             conversation_id = int(channel.split(":")[1])
 
             await manager.broadcast(conversation_id, data)
-
-        except Exception:
+        except Exception as exc:
+            logger.error(
+                "hang_event",
+                extra={
+                    "event": "redis pub sub",
+                    "status": "failed",
+                    "error_type": type(exc).__name__,
+                    "error_message": str(exc),
+                    "context": {
+                        "location": "redis_subscriber",
+                        "message": message,
+                    },
+                },
+            )
             continue

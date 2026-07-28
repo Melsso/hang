@@ -245,6 +245,12 @@ or whichever port you decide to bind nginx to.
 
 ---
 
+# 📊 Load Testing
+
+Real end-to-end load testing of the websocket layer — actual connections through Nginx, actual Redis pub/sub fan-out across scaled instances, actual Postgres queries. Zero dropped messages across 25,000+ messages at up to 2,000 concurrent connections. The first attempt at this test also surfaced a real bug (a database session accidentally tied to each websocket's entire lifetime, capping concurrent users at ~15 per instance) that's since been fixed. Full methodology, the bug writeup, and honest interpretation of the results (including where the numbers should and shouldn't be trusted) are in [LOAD_TESTING.md](./hang-backend/LOAD_TEST.md).
+
+---
+
 # ⚠️ Notes
 - External services (OAuth, S3, etc.) require valid credentials in .api_env
 
