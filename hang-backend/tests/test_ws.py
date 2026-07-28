@@ -1,5 +1,7 @@
 import asyncio
 import pytest
+from typing import Any, cast
+from fastapi import WebSocket
 
 from hang.models.db_models import User
 
@@ -46,7 +48,7 @@ async def test_publish_event_reaches_room_subscribers(test_redis_client):
 
     fake_ws = FakeWebSocket()
     conversation_id = 999999
-    ws_helpers.manager.join_room(conversation_id, fake_ws)
+    ws_helpers.manager.join_room(conversation_id, cast(WebSocket, fake_ws))
 
     subscriber_task = asyncio.create_task(ws_helpers.redis_subscriber())
     try:
@@ -64,13 +66,13 @@ async def test_publish_event_reaches_room_subscribers(test_redis_client):
         assert received == [{"type": "message", "content": "hi"}]
     finally:
         subscriber_task.cancel()
-        ws_helpers.manager.leave_room(conversation_id, fake_ws)
+        ws_helpers.manager.leave_room(conversation_id, cast(WebSocket, fake_ws))
 
 
 @pytest.mark.anyio
 async def test_publish_event_does_not_leak_to_other_rooms(test_redis_client):
-    received_a = []
-    received_b = []
+    received_a: list[dict[str, Any]] = []
+    received_b: list[dict[str, Any]] = []
 
     class FakeWebSocket:
         def __init__(self, sink):
@@ -82,8 +84,8 @@ async def test_publish_event_does_not_leak_to_other_rooms(test_redis_client):
     ws_a = FakeWebSocket(received_a)
     ws_b = FakeWebSocket(received_b)
 
-    ws_helpers.manager.join_room(111, ws_a)
-    ws_helpers.manager.join_room(222, ws_b)
+    ws_helpers.manager.join_room(111, cast(WebSocket, ws_a))
+    ws_helpers.manager.join_room(222, cast(WebSocket, ws_b))
 
     subscriber_task = asyncio.create_task(ws_helpers.redis_subscriber())
     try:
@@ -102,5 +104,5 @@ async def test_publish_event_does_not_leak_to_other_rooms(test_redis_client):
         assert received_b == []
     finally:
         subscriber_task.cancel()
-        ws_helpers.manager.leave_room(111, ws_a)
-        ws_helpers.manager.leave_room(222, ws_b)
+        ws_helpers.manager.leave_room(111, cast(WebSocket, ws_a))
+        ws_helpers.manager.leave_room(222, cast(WebSocket, ws_b))

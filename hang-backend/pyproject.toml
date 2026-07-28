@@ -43,6 +43,13 @@ packages = [{include = "hang", from = "src"}]
 [tool.mypy]
 plugins = ["pydantic.mypy"]
 check_untyped_defs = true
+ignore_missing_imports = false
+
+[[tool.mypy.overrides]]
+module = [
+    "testcontainers.*",
+]
+ignore_missing_imports = true
 
 [tool.pydantic-mypy]
 init_typed = false

@@ -23,9 +23,9 @@ def test_db_connectivity(app):
 
 @pytest.mark.anyio
 async def test_redis_connectivity(app):
-    import hang.helpers.ws as ws_helpers
+    import hang.core.redis as redis_core
 
-    pong = await ws_helpers.redis_client.ping()
+    pong = await redis_core.ping()
     assert pong is True
 
 
