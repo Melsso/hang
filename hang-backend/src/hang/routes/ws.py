@@ -20,7 +20,7 @@ async def conversation_ws(
         connection_id = str(uuid.uuid4())
         start_time = time.time()
 
-        user = get_current_user_ws(ws=websocket)
+        user_id = get_current_user_ws(ws=websocket)
 
         logger.info(
             "hang_event",
@@ -28,30 +28,30 @@ async def conversation_ws(
                 "event": "ws_open",
                 "status": "success",
                 "connection_id": connection_id,
-                "user_id": user.user_id,
+                "user_id": user_id,
             },
         )
 
-        await manager.connect_user(user_id=user.user_id, websocket=websocket)
-        conversations = get_all_user_conversations(user_id=user.user_id)
+        await manager.connect_user(user_id=user_id, websocket=websocket)
+        cids = get_all_user_conversations(user_id=user_id)
 
-        for c in conversations:
-            manager.join_room(c.conversation_id, websocket)
+        for cid in cids:
+            manager.join_room(cid, websocket)
             logger.info(
                 "hang_event",
                 extra={
                     "event": "ws_join_room",
                     "status": "success",
                     "connection_id": connection_id,
-                    "user_id": user.user_id,
-                    "context": {"conversation_id": c.conversation_id},
+                    "user_id": user_id,
+                    "context": {"conversation_id": cid},
                 },
             )
 
         while True:
             raw = await websocket.receive_text()
 
-            await handle_ws_message(websocket=websocket, user_id=user.user_id, raw=raw)
+            await handle_ws_message(websocket=websocket, user_id=user_id, raw=raw)
 
     except WebSocketDisconnect:
         duration = time.time() - start_time
@@ -61,12 +61,12 @@ async def conversation_ws(
                 "event": "ws_close",
                 "status": "success",
                 "connection_id": connection_id,
-                "user_id": user.user_id,
+                "user_id": user_id,
                 "context": {"duration_sec": round(duration, 2)},
             },
         )
-        manager.disconnect_user(user.user_id, websocket)
+        manager.disconnect_user(user_id, websocket)
 
     except Exception:
-        manager.disconnect_user(user.user_id, websocket)
+        manager.disconnect_user(user_id, websocket)
         raise

@@ -196,10 +196,10 @@ async def handle_ws_message(
             content=content,
         )
 
-    payload = {
-        **MessagePreview.model_validate(message).model_dump(mode="json"),
-        "conversation_id": conversation.conversation_id,
-    }
+        payload = {
+            **MessagePreview.model_validate(message).model_dump(mode="json"),
+            "conversation_id": conversation.conversation_id,
+        }
 
     await publish_event(
         conversation_id,
@@ -210,7 +210,7 @@ async def handle_ws_message(
     )
 
 
-def get_current_user_ws(ws: WebSocket) -> User:
+def get_current_user_ws(ws: WebSocket) -> int:
     token = ws.cookies.get("access_token")
 
     if not token:
@@ -224,13 +224,15 @@ def get_current_user_ws(ws: WebSocket) -> User:
         if not user_id:
             raise WebSocketDisconnect(code=1008)
 
+        uid = None
         with get_db_session() as db:
             user = db.query(User).filter(User.user_id == int(user_id)).first()
+            uid = user.user_id
 
-        if not user:
+        if not user or not uid:
             raise WebSocketDisconnect(code=1008)
 
-        return user
+        return uid
 
     except JWTError:
         raise WebSocketDisconnect(code=1008)

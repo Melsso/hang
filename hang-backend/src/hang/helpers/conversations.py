@@ -168,9 +168,7 @@ def get_user_conversation(
     return conversation
 
 
-def get_all_user_conversations(user_id: int) -> list[Conversation]:
-    filtered = []
-
+def get_all_user_conversations(user_id: int) -> list[int]:
     with get_db_session() as db:
         conversations = (
             db.query(Conversation)
@@ -179,6 +177,7 @@ def get_all_user_conversations(user_id: int) -> list[Conversation]:
             )
             .all()
         )
+        filtered = []
 
         for c in conversations:
             other_user_id = c.user2_id if c.user1_id == user_id else c.user1_id
@@ -186,7 +185,7 @@ def get_all_user_conversations(user_id: int) -> list[Conversation]:
             if is_blocked(db, user_id, other_user_id):
                 continue
 
-            filtered.append(c)
+            filtered.append(c.conversation_id)
 
     return filtered
 
