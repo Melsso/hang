@@ -15,7 +15,6 @@ from hang.models.db_models import User
 from hang.core.redis import redis_client
 from hang.core.database import get_db_session
 from hang.helpers.messages import send_message_flow, mark_conversation_messages_read
-from hang.helpers.conversations import get_user_conversation
 
 
 logger = logging.getLogger("Hang")
@@ -130,12 +129,16 @@ async def handle_ws_message(
         manager.mark_pong(websocket)
         return
 
-    if data.get("type") == "typing":
-        conversation_id = data.get("conversation_id")
-        is_typing = data.get("is_typing", False)
+    conversation_id = data.get("conversation_id")
+    if not conversation_id:
+        return
 
-        if not conversation_id:
-            return
+    if conversation_id not in websocket.state.conversation_ids:
+        await websocket.close(code=1008)
+        return
+
+    if data.get("type") == "typing":
+        is_typing = data.get("is_typing", False)
 
         await publish_event(
             conversation_id,
@@ -149,11 +152,6 @@ async def handle_ws_message(
         return
 
     if data.get("type") == "read":
-        conversation_id = data.get("conversation_id")
-
-        if not conversation_id:
-            return
-
         with get_db_session() as db:
             mark_conversation_messages_read(
                 db=db,
@@ -171,35 +169,25 @@ async def handle_ws_message(
         )
         return
 
-    conversation_id = data.get("conversation_id")
     content = data.get("content")
 
-    if not conversation_id or not content:
+    if not content:
         return
 
-    conversation = None
     with get_db_session() as db:
-        conversation = get_user_conversation(
-            db=db,
-            user_id=user_id,
-            conversation_id=conversation_id,
-        )
-
-        if not conversation:
-            await websocket.close(code=1008)
-            return
-
         message = send_message_flow(
             db=db,
-            conversation=conversation,
+            conversation_id=conversation_id,
             sender_id=user_id,
             content=content,
         )
 
         payload = {
             **MessagePreview.model_validate(message).model_dump(mode="json"),
-            "conversation_id": conversation.conversation_id,
+            "conversation_id": conversation_id,
         }
+
+        db.commit()
 
     await publish_event(
         conversation_id,

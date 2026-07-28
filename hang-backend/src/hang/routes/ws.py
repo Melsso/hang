@@ -33,7 +33,8 @@ async def conversation_ws(
         )
 
         await manager.connect_user(user_id=user_id, websocket=websocket)
-        cids = get_all_user_conversations(user_id=user_id)
+        cids = set(get_all_user_conversations(user_id=user_id))
+        websocket.state.conversation_ids = cids
 
         for cid in cids:
             manager.join_room(cid, websocket)
