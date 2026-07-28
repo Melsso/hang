@@ -1,11 +1,8 @@
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends
-from sqlalchemy.orm import Session
-from typing import Annotated
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 import uuid
 import time
 import logging
 
-from hang.core.database import get_db
 from hang.helpers.ws import manager, handle_ws_message, get_current_user_ws
 from hang.helpers.conversations import get_all_user_conversations
 
@@ -17,14 +14,13 @@ logger = logging.getLogger("Hang")
 @ws_router.websocket("/conversations")
 async def conversation_ws(
     websocket: WebSocket,
-    db: Annotated[Session, Depends(get_db)],
 ):
     try:
         await websocket.accept()
         connection_id = str(uuid.uuid4())
         start_time = time.time()
 
-        user = get_current_user_ws(ws=websocket, db=db)
+        user = get_current_user_ws(ws=websocket)
 
         logger.info(
             "hang_event",
@@ -37,7 +33,7 @@ async def conversation_ws(
         )
 
         await manager.connect_user(user_id=user.user_id, websocket=websocket)
-        conversations = get_all_user_conversations(db=db, user_id=user.user_id)
+        conversations = get_all_user_conversations(user_id=user.user_id)
 
         for c in conversations:
             manager.join_room(c.conversation_id, websocket)
@@ -55,9 +51,7 @@ async def conversation_ws(
         while True:
             raw = await websocket.receive_text()
 
-            await handle_ws_message(
-                db=db, websocket=websocket, user_id=user.user_id, raw=raw
-            )
+            await handle_ws_message(websocket=websocket, user_id=user.user_id, raw=raw)
 
     except WebSocketDisconnect:
         duration = time.time() - start_time

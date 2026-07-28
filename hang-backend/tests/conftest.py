@@ -1,5 +1,6 @@
 import pytest
 
+from contextlib import contextmanager
 from testcontainers.postgres import PostgresContainer
 from testcontainers.redis import RedisContainer
 import redis.asyncio as aioredis
@@ -15,6 +16,7 @@ from hang.core.database import get_db
 from hang.core.storage import get_storage
 from hang.helpers.users import get_current_user
 import hang.helpers.ws as ws_helpers
+import hang.helpers.conversations as conv_helpers
 from hang.models.db_models import Base, User
 from hang.schemas.config import conf
 
@@ -66,6 +68,17 @@ def db(engine, request):
     session.close()
     outer_transaction.rollback()
     connection.close()
+
+
+@pytest.fixture(autouse=True)
+def mock_db_session(monkeypatch, db):
+
+    @contextmanager
+    def fake_get_db_session():
+        yield db
+
+    monkeypatch.setattr(ws_helpers, "get_db_session", fake_get_db_session)
+    monkeypatch.setattr(conv_helpers, "get_db_session", fake_get_db_session)
 
 
 @pytest.fixture

@@ -8,6 +8,7 @@ from hang.schemas.conversations import ConversationPreview
 from hang.models.db_models import User, Conversation, Message, UserBlock, Swipe
 
 from hang.core.storage import StorageService
+from hang.core.database import get_db_session
 from hang.helpers.users import is_blocked
 
 
@@ -64,7 +65,7 @@ def fetch_conversations_list(
         .all()
     )
 
-    unread_map = {}
+    unread_map: dict[int, int] = {}
     for row in unread_rows:
         conv_id = row[0]
         unread_map[conv_id] = unread_map.get(conv_id, 0) + 1
@@ -76,11 +77,16 @@ def fetch_conversations_list(
 
         other_user = db.query(User).filter(User.user_id == other_user_id).first()
 
+        if other_user is None:
+            continue
+
         other_user_img_url = None
-        if other_user and other_user.images:
+        if other_user.images:
             other_user_img_url = storage.build_image_url(other_user.images[0].image_key)
 
-        last_msg_obj = last_message_map.get(c.last_message_id)
+        last_msg_obj = None
+        if c.last_message_id is not None:
+            last_msg_obj = last_message_map.get(c.last_message_id)
 
         unread_count = unread_map.get(c.conversation_id, 0)
 
@@ -162,22 +168,25 @@ def get_user_conversation(
     return conversation
 
 
-def get_all_user_conversations(db: Session, user_id: int) -> list[Conversation]:
-    conversations = (
-        db.query(Conversation)
-        .filter((Conversation.user1_id == user_id) | (Conversation.user2_id == user_id))
-        .all()
-    )
-
+def get_all_user_conversations(user_id: int) -> list[Conversation]:
     filtered = []
 
-    for c in conversations:
-        other_user_id = c.user2_id if c.user1_id == user_id else c.user1_id
+    with get_db_session() as db:
+        conversations = (
+            db.query(Conversation)
+            .filter(
+                (Conversation.user1_id == user_id) | (Conversation.user2_id == user_id)
+            )
+            .all()
+        )
 
-        if is_blocked(db, user_id, other_user_id):
-            continue
+        for c in conversations:
+            other_user_id = c.user2_id if c.user1_id == user_id else c.user1_id
 
-        filtered.append(c)
+            if is_blocked(db, user_id, other_user_id):
+                continue
+
+            filtered.append(c)
 
     return filtered
 

@@ -1,7 +1,6 @@
 from fastapi import WebSocket
 from starlette.websockets import WebSocketDisconnect
 
-from sqlalchemy.orm import Session
 from collections import defaultdict
 from jose import jwt, JWTError
 import json
@@ -14,6 +13,7 @@ from hang.schemas.config import conf
 from hang.models.db_models import User
 
 from hang.core.redis import redis_client
+from hang.core.database import get_db_session
 from hang.helpers.messages import send_message_flow, mark_conversation_messages_read
 from hang.helpers.conversations import get_user_conversation
 
@@ -120,7 +120,6 @@ async def ws_heartbeat_loop():
 
 async def handle_ws_message(
     *,
-    db: Session,
     websocket: WebSocket,
     user_id: int,
     raw: str,
@@ -155,11 +154,13 @@ async def handle_ws_message(
         if not conversation_id:
             return
 
-        mark_conversation_messages_read(
-            db=db,
-            conversation_id=conversation_id,
-            user_id=user_id,
-        )
+        with get_db_session() as db:
+            mark_conversation_messages_read(
+                db=db,
+                conversation_id=conversation_id,
+                user_id=user_id,
+            )
+
         await publish_event(
             conversation_id,
             {
@@ -176,22 +177,24 @@ async def handle_ws_message(
     if not conversation_id or not content:
         return
 
-    conversation = get_user_conversation(
-        db=db,
-        user_id=user_id,
-        conversation_id=conversation_id,
-    )
+    conversation = None
+    with get_db_session() as db:
+        conversation = get_user_conversation(
+            db=db,
+            user_id=user_id,
+            conversation_id=conversation_id,
+        )
 
-    if not conversation:
-        await websocket.close(code=1008)
-        return
+        if not conversation:
+            await websocket.close(code=1008)
+            return
 
-    message = send_message_flow(
-        db=db,
-        conversation=conversation,
-        sender_id=user_id,
-        content=content,
-    )
+        message = send_message_flow(
+            db=db,
+            conversation=conversation,
+            sender_id=user_id,
+            content=content,
+        )
 
     payload = {
         **MessagePreview.model_validate(message).model_dump(mode="json"),
@@ -207,7 +210,7 @@ async def handle_ws_message(
     )
 
 
-def get_current_user_ws(ws: WebSocket, db: Session) -> User:
+def get_current_user_ws(ws: WebSocket) -> User:
     token = ws.cookies.get("access_token")
 
     if not token:
@@ -221,7 +224,8 @@ def get_current_user_ws(ws: WebSocket, db: Session) -> User:
         if not user_id:
             raise WebSocketDisconnect(code=1008)
 
-        user = db.query(User).filter(User.user_id == int(user_id)).first()
+        with get_db_session() as db:
+            user = db.query(User).filter(User.user_id == int(user_id)).first()
 
         if not user:
             raise WebSocketDisconnect(code=1008)

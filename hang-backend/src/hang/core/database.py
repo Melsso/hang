@@ -1,4 +1,4 @@
-# core/db.py
+from contextlib import contextmanager
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 import time
@@ -63,6 +63,18 @@ def init_db():
 
 
 def get_db():
+    if SessionLocal is None:
+        raise RuntimeError("DB not initialized yet")
+
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+@contextmanager
+def get_db_session():
     if SessionLocal is None:
         raise RuntimeError("DB not initialized yet")
 
