@@ -1,5 +1,7 @@
 from sqlalchemy.orm import Session, aliased
-from typing import Optional
+from sqlalchemy import select
+
+from typing import Optional, Any
 
 import logging
 
@@ -14,9 +16,7 @@ logger = logging.getLogger("Hang")
 
 
 def fetch_candidate_profiles(db: Session, user_id: int) -> list[User]:
-    swiped_subq = (
-        db.query(Swipe.to_user_id).filter(Swipe.from_user_id == user_id).subquery()
-    )
+    swiped_subq = select(Swipe.to_user_id).where(Swipe.from_user_id == user_id)
 
     Block1 = aliased(UserBlock)
     Block2 = aliased(UserBlock)
@@ -58,8 +58,8 @@ def calc_user_score(candidate: User, user: User) -> int:
 
 def generate_suggested_profiles(
     db: Session, user: User, storage: StorageService
-) -> Optional[list[UserSwipeProfile]]:
-    profiles: list[UserSwipeProfile] = []
+) -> Optional[list[dict[str, Any]]]:
+    profiles: list[dict[str, Any]] = []
 
     candidates = fetch_candidate_profiles(db=db, user_id=user.user_id)
     if not candidates:

@@ -539,7 +539,7 @@ def test_upload_multiple_images(client, db):
             "test.txt",
             b"this is definitely not an image file",
             "text/plain",
-            "Image type not allowed.",
+            "Could not detect image type.",
         ),
         ("empty.png", b"", "image/png", "Empty file provided."),
         (

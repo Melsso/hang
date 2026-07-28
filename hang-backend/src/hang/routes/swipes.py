@@ -1,9 +1,8 @@
 from fastapi import APIRouter, Depends, Request, HTTPException
 from sqlalchemy.orm import Session
-from typing import Annotated
+from typing import Annotated, Any
 
 from hang.schemas.swipes import SwipeCreate, SwipeResponse
-from hang.schemas.users import UserSwipeProfile
 from hang.schemas.conversations import ConversationResponse
 from hang.models.db_models import User
 
@@ -17,7 +16,7 @@ from hang.helpers.swipes import generate_suggested_profiles, process_swipe
 swipe_router = APIRouter(prefix="/swipes", tags=["swipes"])
 
 
-@swipe_router.get("/home", response_model=list[UserSwipeProfile])
+@swipe_router.get("/home", response_model=list[dict[str, Any]])
 @limiter.limit("25/minute")
 def home_get(
     request: Request,

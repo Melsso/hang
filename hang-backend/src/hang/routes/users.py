@@ -101,6 +101,11 @@ def visit_profile_get(
         )
 
     target_user = db.query(User).filter(User.user_id == user_id).first()
+    if not target_user:
+        raise HTTPException(
+            status_code=404,
+            detail="User not found",
+        )
 
     return create_user_resp_data(user=target_user, storage=storage)
 
@@ -156,11 +161,17 @@ async def profile_image_upload_post(
     if errs:
         raise HTTPException(status_code=400, detail=errs)
 
-    errs = process_file_payloads(
+    err = process_file_payloads(
         db=db, file_payloads=file_payloads, user=user, storage=storage
     )
-    if errs:
-        raise HTTPException(status_code=400, detail=errs)
+    if err is not None:
+        raise HTTPException(status_code=400, detail=err)
 
     fresh_user = db.query(User).filter(User.user_id == user.user_id).first()
+    if not fresh_user:
+        raise HTTPException(
+            status_code=404,
+            detail="User not found",
+        )
+
     return create_user_resp_data(user=fresh_user, storage=storage)

@@ -72,8 +72,12 @@ def register_user(db: Session, user_data: UserCreate) -> tuple[Optional[User], s
         interests=user_data.interests,
         is_active=True,
     )
+
+    if new_user.birthdate is None:
+        return None, "Birthdate is required."
     if not is_18_or_older(new_user.birthdate):
         return None, "You must be over 18 years old."
+
     try:
         db.add(new_user)
         db.commit()
@@ -176,6 +180,9 @@ def update_profile_info(
     db: Session, update_data: dict, user: User, storage: StorageService
 ) -> tuple[bool, str]:
     apply_profile_field_updates(user, update_data)
+
+    if user.birthdate is None:
+        return False, "Birthdate is required."
     if not is_18_or_older(user.birthdate):
         return False, "You must be over 18 years old."
 
@@ -289,6 +296,10 @@ async def inspect_and_collect_files(
             continue
 
         ext = imghdr.what(None, h=contents)
+
+        if ext is None:
+            errs.append("Could not detect image type.")
+            continue
 
         if ext not in conf.ALLOWED_IMAGE_TYPES:
             errs.append("Image type not allowed.")
