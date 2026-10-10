@@ -10,19 +10,19 @@ import Conversations from "../pages/Conversations";
 import Settings from "../pages/Settings";
 
 export default function AppRoutes() {
-    return (
-        <BrowserRouter>
-            <Routes>
-                <Route path="/" element={<Landing />} />
-                <Route path="/login" element={<Login />} />
-                <Route path="/register" element={<Register />} />
-                <Route element={<RequireAuth />}>
-                    <Route path="/swipes" element={<Swipes />} />
-                    <Route path="/profile/:userId?" element={<Profile />} />
-                    <Route path="/conversations" element={<Conversations />} />
-                    <Route path="/settings" element={<Settings />} />
-                </Route>
-            </Routes>
-        </BrowserRouter>
-    );
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Landing />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+        <Route element={<RequireAuth />}>
+          <Route path="/swipes" element={<Swipes />} />
+          <Route path="/profile/:userId?" element={<Profile />} />
+          <Route path="/conversations" element={<Conversations />} />
+          <Route path="/settings" element={<Settings />} />
+        </Route>
+      </Routes>
+    </BrowserRouter>
+  );
 }

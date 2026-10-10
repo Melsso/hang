@@ -8,56 +8,69 @@ import { get_swipe_profiles, swipe_action } from "../api/swipes";
 import type { SwipeProfile } from "../components/swipes/SwipeCard";
 
 export default function Swipes() {
-    const [profiles, setProfiles] = useState<SwipeProfile[] | null>(null);
-    const [index, setIndex] = useState(0);
-    const { showToast } = useToast();
+  const [profiles, setProfiles] = useState<SwipeProfile[] | null>(null);
+  const [index, setIndex] = useState(0);
+  const { showToast } = useToast();
 
-    useEffect(() => {
-        async function load() {
-            const data = await get_swipe_profiles();
-            if (!data) {
-                showToast("Something went wrong, try again later.", "error");
-                return;
-            }
-            setProfiles(data);
-        }
-        load();
-    }, [showToast]);
-
-    if (profiles === null) {
-        return <div>Loading...</div>;
+  useEffect(() => {
+    async function load() {
+      const feed = await get_swipe_profiles();
+      if (feed.status === "incomplete") {
+        showToast("Please complete your profile.", "info");
+        setProfiles([]);
+        return;
+      }
+      if (feed.status === "error") {
+        showToast("Something went wrong, try again later.", "error");
+        setProfiles([]);
+        return;
+      }
+      setProfiles(feed.profiles);
     }
+    load();
+  }, [showToast]);
 
-    const currentProfile = profiles[index];
-    const isEmpty = index >= profiles.length;
+  if (profiles === null) {
+    return <div>Loading...</div>;
+  }
 
-    const handleSwipe = async (swipeType: string) => {
-        if (isEmpty) return;
-        const profile = profiles[index];
-        try {
-            const result = await swipe_action(profile.user_id, swipeType);
-            if (result == null) { showToast("Something went wrong, try again later.", "error"); return; }
-            if (index + 1 >= profiles.length) {
-                const more = await get_swipe_profiles();
-                if (more) { setProfiles(more); setIndex(0); return; }
-            }
-            setIndex(prev => prev + 1);
-        } catch {
-            showToast("Something went wrong, try again later.", "error");
+  const currentProfile = profiles[index];
+  const isEmpty = index >= profiles.length;
+
+  const handleSwipe = async (swipeType: string) => {
+    if (isEmpty) return;
+    const profile = profiles[index];
+    try {
+      const result = await swipe_action(profile.user_id, swipeType);
+      if (result == null) {
+        showToast("Something went wrong, try again later.", "error");
+        return;
+      }
+      if (index + 1 >= profiles.length) {
+        const feed = await get_swipe_profiles();
+        if (feed.status === "ok") {
+          setProfiles(feed.profiles);
+          setIndex(0);
+          return;
         }
-    };
+      }
+      setIndex((prev) => prev + 1);
+    } catch {
+      showToast("Something went wrong, try again later.", "error");
+    }
+  };
 
-    return (
-        <div className="w-3/4 h-[70vh] flex flex-col items-center justify-center gap-10">
-            <ActionBar />
+  return (
+    <div className="w-3/4 h-[70vh] flex flex-col items-center justify-center gap-10">
+      <ActionBar />
 
-            <ProfileCard
-                key={index}
-                profile={isEmpty ? undefined : currentProfile}
-                onSwipe={handleSwipe}
-            />
+      <ProfileCard
+        key={index}
+        profile={isEmpty ? undefined : currentProfile}
+        onSwipe={handleSwipe}
+      />
 
-            <SwipeAction onSwipe={handleSwipe} />
-        </div>
-    );
+      <SwipeAction onSwipe={handleSwipe} />
+    </div>
+  );
 }

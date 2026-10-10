@@ -2,12 +2,10 @@ name: Backend CI
 
 on:
   push:
-    branches: [main, dev]
     paths:
       - "hang-backend/**"
       - ".github/workflows/backend-ci.yml"
   pull_request:
-    branches: [main, dev]
     paths:
       - "hang-backend/**"
       - ".github/workflows/backend-ci.yml"
@@ -66,17 +64,17 @@ jobs:
           restore-keys: |
             poetry-${{ runner.os }}-
 
-      - name: Install dependencies
+      - name: Install Dependencies
         run: poetry install --no-interaction
 
-      - name: Lint with ruff
+      - name: Lint
         run: poetry run ruff check .
 
-      - name: Type check with mypy
+      - name: Typecheck
         run: poetry run mypy .
 
-      - name: Run unit tests
+      - name: Unit Tests
         run: poetry run pytest tests
 
-      - name: Run smoke tests
+      - name: Smoke Tests
         run: poetry run pytest smoke_tests

@@ -2,12 +2,10 @@ name: Frontend CI
 
 on:
   push:
-    branches: [main, dev]
     paths:
       - "hang-frontend/**"
       - ".github/workflows/frontend-ci.yml"
   pull_request:
-    branches: [main, dev]
     paths:
       - "hang-frontend/**"
       - ".github/workflows/frontend-ci.yml"
@@ -18,14 +16,27 @@ defaults:
 
 jobs:
   build:
+    name: Lint and Build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
           cache-dependency-path: hang-frontend/package-lock.json
-      - run: npm ci
-      - run: npm run lint
-      - run: npm run build
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Formatting
+        run: npm run format:check
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build

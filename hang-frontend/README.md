@@ -41,12 +41,13 @@ must be running.
 
 ## Scripts
 
-| Command | Purpose |
-|---|---|
-| `npm run dev` | Vite dev server |
-| `npm run build` | Type-check and production build |
-| `npm run lint` | ESLint |
-| `npm run preview` | Preview the production build |
+| Command           | Purpose                         |
+| ----------------- | ------------------------------- |
+| `npm run dev`     | Vite dev server                 |
+| `npm run build`   | Type-check and production build |
+| `npm run format`  | Code formatting using prettier  |
+| `npm run lint`    | ESLint                          |
+| `npm run preview` | Preview the production build    |
 
 ## Production build
 
