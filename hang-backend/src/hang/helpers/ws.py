@@ -130,6 +130,25 @@ class ConnectionManager:
             if not sockets:
                 self.user_sockets.pop(user_id, None)
 
+    async def deliver_to_user(self, user_id: int, payload: dict):
+        sockets = list(self.user_sockets.get(user_id, ()))
+        if not sockets:
+            return
+
+        if payload.get("type") == "match":
+            conversation_id = payload.get("conversation_id")
+            if isinstance(conversation_id, int):
+                for ws in sockets:
+                    ws.state.conversation_ids.add(conversation_id)
+                    self.join_room(conversation_id, ws)
+
+        results = await asyncio.gather(
+            *(ws.send_json(payload) for ws in sockets), return_exceptions=True
+        )
+        for ws, result in zip(sockets, results):
+            if isinstance(result, Exception):
+                self._remove_ws(ws)
+
 
 manager = ConnectionManager()
 Gauge(
@@ -273,15 +292,18 @@ async def redis_subscriber():
     while True:
         pubsub = redis_client.pubsub()
         try:
-            await pubsub.psubscribe("conversation:*")
+            await pubsub.psubscribe("conversation:*", "user:*")
             async for message in pubsub.listen():
                 if message["type"] not in ("message", "pmessage"):
                     continue
                 try:
-                    conversation_id = int(message["channel"].split(":")[1])
-                    await manager.broadcast(
-                        conversation_id, json.loads(message["data"])
-                    )
+                    kind, _, raw_id = message["channel"].partition(":")
+                    target_id = int(raw_id)
+                    data = json.loads(message["data"])
+                    if kind == "conversation":
+                        await manager.broadcast(target_id, data)
+                    elif kind == "user":
+                        await manager.deliver_to_user(target_id, data)
                 except Exception as exc:
                     logger.error(
                         "hang_event",
@@ -303,3 +325,10 @@ async def redis_subscriber():
                 await pubsub.aclose()
             except Exception:
                 pass
+
+
+async def publish_user_event(user_id: int, payload: dict) -> None:
+    try:
+        await redis_client.publish(f"user:{user_id}", json.dumps(payload))
+    except Exception:
+        logger.exception("user event publish failed", extra={"user_id": user_id})

@@ -10,6 +10,7 @@ export type Conversation = {
   other_user_name: string;
   other_user_img_url: string | null;
   last_message: string | null;
+  is_new_match: boolean;
   last_message_at: string | null;
   unread_count: number;
   updated_at: string;
@@ -75,11 +76,15 @@ function ConversationRow({
         )}
       </div>
 
-      <div className="flex flex-col flex-1 min-w-0">
+      <div className="flex items-center gap-2 min-w-0">
         <span className="text-white text-sm font-medium truncate">
           {conversation.other_user_name}
         </span>
-
+        {conversation.is_new_match && (
+          <span className="shrink-0 rounded-full bg-[#e50914] px-2 py-[1px] text-[10px] text-white">
+            New match
+          </span>
+        )}
         <span className="text-xs text-white/50 truncate">
           {conversation.last_message || "No messages yet"}
         </span>

@@ -19,6 +19,7 @@ from hang.core.database import get_db
 from hang.core.storage import get_storage
 from hang.helpers.users import get_current_user
 import hang.helpers.ws as ws_helpers
+import hang.routes.swipes as swipes_routes
 import hang.helpers.conversations as conv_helpers
 from hang.models.db_models import Base, User
 from hang.schemas.config import conf
@@ -154,3 +155,14 @@ def test_redis_client(redis_container, monkeypatch):
     monkeypatch.setattr(ws_helpers, "redis_client", rc)
 
     yield rc
+
+
+@pytest.fixture(autouse=True)
+def fake_user_events(monkeypatch):
+    events: list[tuple[int, dict]] = []
+
+    async def fake_publish(user_id, payload):
+        events.append((user_id, payload))
+
+    monkeypatch.setattr(swipes_routes, "publish_user_event", fake_publish)
+    return events

@@ -97,6 +97,7 @@ def fetch_conversations_list(
                 if other.images
                 else None,
                 last_message=last.content if last else None,
+                is_new_match=not _seen_by(c, user_id),
                 last_message_at=last.created_at if last else None,
                 unread_count=unread_map.get(c.conversation_id, 0),
                 updated_at=c.updated_at,
@@ -257,3 +258,61 @@ def delete_conversation(db: Session, conversation_id: int, user_id: int):
             },
         )
         return 500, "Could not delete conversation"
+
+
+def _seen_by(conversation: Conversation, user_id: int) -> bool:
+    return (
+        conversation.user1_seen
+        if conversation.user1_id == user_id
+        else conversation.user2_seen
+    )
+
+
+def mark_conversation_seen(
+    db: Session, conversation: Conversation, user_id: int
+) -> None:
+    if _seen_by(conversation, user_id):
+        return
+    if conversation.user1_id == user_id:
+        conversation.user1_seen = True
+    else:
+        conversation.user2_seen = True
+    db.commit()
+
+
+def get_notification_counts(db: Session, user_id: int) -> tuple[int, int]:
+    blocks = (
+        db.query(UserBlock)
+        .filter(or_(UserBlock.blocker_id == user_id, UserBlock.blocked_id == user_id))
+        .all()
+    )
+    blocked_ids = {
+        b.blocked_id if b.blocker_id == user_id else b.blocker_id for b in blocks
+    }
+
+    conversations = (
+        db.query(Conversation)
+        .filter(or_(Conversation.user1_id == user_id, Conversation.user2_id == user_id))
+        .all()
+    )
+    visible = [
+        c
+        for c in conversations
+        if (c.user2_id if c.user1_id == user_id else c.user1_id) not in blocked_ids
+    ]
+
+    new_matches = sum(1 for c in visible if not _seen_by(c, user_id))
+    ids = [c.conversation_id for c in visible]
+    unread = 0
+    if ids:
+        unread = (
+            db.query(func.count(Message.message_id))
+            .filter(
+                Message.conversation_id.in_(ids),
+                Message.sender_id != user_id,
+                Message.is_read.is_(False),
+            )
+            .scalar()
+            or 0
+        )
+    return new_matches, unread

@@ -2,7 +2,11 @@ from fastapi import APIRouter, Depends, Request, Response, HTTPException
 from sqlalchemy.orm import Session
 from typing import Annotated, Optional
 
-from hang.schemas.conversations import MessageListResponse, ConversationPreview
+from hang.schemas.conversations import (
+    MessageListResponse,
+    ConversationPreview,
+    NotificationsResponse,
+)
 from hang.models.db_models import User
 
 from hang.core.database import get_db
@@ -19,6 +23,8 @@ from hang.helpers.conversations import (
     fetch_conversations_list,
     get_user_conversation,
     delete_conversation,
+    mark_conversation_seen,
+    get_notification_counts,
 )
 
 conversation_router = APIRouter(prefix="/conversations", tags=["conversations"])
@@ -68,6 +74,12 @@ def messages_by_conv_id_get(
         db=db, user_id=user.user_id, conversation_id=conversation_id
     )
 
+    if before_message_id is None:
+        mark_conversation_messages_read(
+            db=db, conversation_id=conversation.conversation_id, user_id=user.user_id
+        )
+        mark_conversation_seen(db=db, conversation=conversation, user_id=user.user_id)
+
     messages, next_cursor, has_more = get_conversation_messages(
         db=db,
         conversation_id=conversation.conversation_id,
@@ -86,3 +98,14 @@ def messages_by_conv_id_get(
         next_cursor=next_cursor,
         has_more=has_more,
     )
+
+
+@conversation_router.get("/notifications", response_model=NotificationsResponse)
+@limiter.limit(FREQUENT)
+def notifications_get(
+    request: Request,
+    db: Annotated[Session, Depends(get_db)],
+    user: Annotated[User, Depends(get_current_user)],
+):
+    new_matches, unread = get_notification_counts(db=db, user_id=user.user_id)
+    return NotificationsResponse(new_matches=new_matches, unread_messages=unread)

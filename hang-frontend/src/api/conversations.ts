@@ -1,3 +1,13 @@
+export type Notifications = { new_matches: number; unread_messages: number };
+
+export async function get_notifications(): Promise<Notifications | null> {
+  const res = await fetch("/api/conversations/notifications", {
+    credentials: "include",
+  });
+  if (!res.ok) return null;
+  return res.json();
+}
+
 export async function get_user_conversations() {
   const res = await fetch("/api/conversations", {
     credentials: "include",

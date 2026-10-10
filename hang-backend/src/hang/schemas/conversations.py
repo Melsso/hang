@@ -9,6 +9,7 @@ class ConversationPreview(BaseModel):
     other_user_name: str
     other_user_img_url: str | None = None
     last_message: str | None
+    is_new_match: bool = False
     last_message_at: datetime | None = None
     unread_count: int = 0
     updated_at: datetime
@@ -25,6 +26,11 @@ class ConversationResponse(BaseModel):
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class NotificationsResponse(BaseModel):
+    new_matches: int
+    unread_messages: int
 
 
 class MessagePreview(BaseModel):

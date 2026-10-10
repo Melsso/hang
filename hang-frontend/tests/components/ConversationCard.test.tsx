@@ -12,6 +12,7 @@ function makeConversation(overrides: Partial<Conversation> = {}): Conversation {
     other_user_name: "Jane",
     other_user_img_url: null,
     last_message: "see you",
+    is_new_match: false,
     last_message_at: "2026-01-01T00:00:00Z",
     unread_count: 0,
     updated_at: "2026-01-01T00:00:00Z",

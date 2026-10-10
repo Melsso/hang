@@ -10,6 +10,7 @@ export type SocketMessage = {
 };
 
 type IncomingEvent =
+  | { type: "match"; conversation_id: number; user_id: number; name: string }
   | { type: "message"; message: SocketMessage }
   | { type: "typing"; conversation_id: number; user_id: number; is_typing: boolean }
   | { type: "ping" }

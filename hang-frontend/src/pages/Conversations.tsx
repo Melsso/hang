@@ -79,6 +79,13 @@ export default function Conversations() {
       });
     }
 
+    if (event.type === "match") {
+      showToast(`It's a match with ${event.name}!`, "success");
+      get_user_conversations().then((data) => {
+        if (data) setConversations(data);
+      });
+    }
+
     if (event.type === "read") {
       const { conversation_id } = event;
 
@@ -129,7 +136,9 @@ export default function Conversations() {
     setConversations(
       (prev) =>
         prev?.map((c) =>
-          c.conversation_id === conv.conversation_id ? { ...c, unread_count: 0 } : c
+          c.conversation_id === conv.conversation_id
+            ? { ...c, unread_count: 0, is_new_match: false }
+            : c
         ) ?? null
     );
     send({

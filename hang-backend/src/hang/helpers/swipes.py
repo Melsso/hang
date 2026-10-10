@@ -2,7 +2,6 @@ from sqlalchemy.orm import Session, aliased, selectinload
 from sqlalchemy import select, func, and_, or_
 from enum import Enum
 from sqlalchemy.exc import IntegrityError
-
 from typing import Optional, Any
 
 import logging
@@ -139,7 +138,10 @@ def process_swipe(
             try:
                 with db.begin_nested():
                     conversation = Conversation(
-                        user1_id=user.user_id, user2_id=target_id
+                        user1_id=user.user_id,
+                        user2_id=target_id,
+                        user1_seen=True,
+                        user2_seen=False,
                     )
                     db.add(conversation)
             except IntegrityError:

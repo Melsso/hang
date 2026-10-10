@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Request, HTTPException
+from fastapi import APIRouter, Depends, Request, HTTPException, BackgroundTasks
 from sqlalchemy.orm import Session
 from typing import Annotated, Any
 
@@ -11,6 +11,7 @@ from hang.core.storage import get_storage, StorageService
 from hang.core.middleware import limiter
 from hang.helpers.users import get_current_user, is_profile_incomplete
 from hang.helpers.swipes import generate_suggested_profiles, process_swipe, SwipeOutcome
+from hang.helpers.ws import publish_user_event
 from hang.core.limits import FREQUENT
 
 swipe_router = APIRouter(prefix="/swipes", tags=["swipes"])
@@ -36,6 +37,7 @@ def home_get(
 @limiter.limit(FREQUENT)
 def swipe_post(
     request: Request,
+    background_tasks: BackgroundTasks,
     db: Annotated[Session, Depends(get_db)],
     user: Annotated[User, Depends(get_current_user)],
     swipeData: SwipeCreate,
@@ -46,9 +48,21 @@ def swipe_post(
     if outcome is SwipeOutcome.error:
         raise HTTPException(status_code=500, detail="Could not record swipe")
 
+    if conversation is not None and conversation.user1_id == user.user_id:
+        background_tasks.add_task(
+            publish_user_event,
+            swipeData.to_user_id,
+            {
+                "type": "match",
+                "conversation_id": conversation.conversation_id,
+                "user_id": user.user_id,
+                "name": user.first_name,
+            },
+        )
+
     return SwipeResponse(
         success=True,
-        conversation=ConversationResponse.model_validate(conversation)
-        if conversation
-        else None,
+        conversation=(
+            ConversationResponse.model_validate(conversation) if conversation else None
+        ),
     )

@@ -323,3 +323,25 @@ async def test_publish_event_does_not_leak_to_other_rooms(test_redis_client):
         subscriber_task.cancel()
         ws_helpers.manager.leave_room(111, cast(WebSocket, ws_a))
         ws_helpers.manager.leave_room(222, cast(WebSocket, ws_b))
+
+
+@pytest.mark.anyio
+async def test_match_event_joins_live_sockets_to_the_new_room():
+    mgr = ws_helpers.ConnectionManager()
+    ws = FakeWS({1})
+    await mgr.connect_user(5, as_ws(ws))
+    mgr.join_room(1, as_ws(ws))
+
+    payload = {"type": "match", "conversation_id": 9, "user_id": 2, "name": "Jane"}
+    await mgr.deliver_to_user(5, payload)
+
+    assert 9 in ws.state.conversation_ids
+    assert as_ws(ws) in mgr.rooms[9]
+    assert ws.sent == [payload]
+
+
+@pytest.mark.anyio
+async def test_user_event_for_offline_user_is_dropped():
+    mgr = ws_helpers.ConnectionManager()
+    await mgr.deliver_to_user(123, {"type": "match", "conversation_id": 1})
+    assert 123 not in mgr.user_sockets

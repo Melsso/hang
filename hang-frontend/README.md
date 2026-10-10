@@ -17,6 +17,12 @@ src/
 ├── pages/        Landing, Login, Register, Swipes, Profile, Conversations, Settings
 ├── routes/       router setup
 └── App.tsx, main.tsx, index.css
+
+tests/
+├── api/
+├── components/
+├── pages/
+└── setup.ts
 ```
 
 ## Behavior worth knowing
@@ -47,6 +53,7 @@ must be running.
 | `npm run build`   | Type-check and production build |
 | `npm run format`  | Code formatting using prettier  |
 | `npm run lint`    | ESLint                          |
+| `npm test`        | Run test suit                   |
 | `npm run preview` | Preview the production build    |
 
 ## Production build

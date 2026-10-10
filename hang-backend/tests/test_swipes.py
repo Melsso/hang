@@ -342,3 +342,52 @@ def test_mutual_like_never_creates_second_conversation(client, db):
     assert response.status_code == 200
     assert response.json()["conversation"] is not None
     assert db.query(Conversation).count() == 1
+
+
+@pytest.mark.parametrize(
+    "db",
+    [
+        {
+            **TWO_USERS,
+            Swipe: [
+                {
+                    "from_user_id": lambda c: c[User][1].user_id,
+                    "to_user_id": lambda c: c[User][0].user_id,
+                    "swipe_type": "like",
+                }
+            ],
+        }
+    ],
+    indirect=True,
+)
+@pytest.mark.parametrize("current_user_email", ["john@test.com"], indirect=True)
+def test_match_notifies_other_user_and_marks_unseen(client, db, fake_user_events):
+    john = db.info["seeded"][User][0]
+    jane = db.info["seeded"][User][1]
+
+    response = client.post(
+        SWIPE_URL, json={"to_user_id": jane.user_id, "swipe_type": "like"}
+    )
+
+    assert response.status_code == 200
+    conv = db.query(Conversation).one()
+    assert conv.user1_seen is True and conv.user2_seen is False
+    assert fake_user_events == [
+        (
+            jane.user_id,
+            {
+                "type": "match",
+                "conversation_id": conv.conversation_id,
+                "user_id": john.user_id,
+                "name": "John",
+            },
+        )
+    ]
+
+
+@pytest.mark.parametrize("db", [TWO_USERS], indirect=True)
+@pytest.mark.parametrize("current_user_email", ["john@test.com"], indirect=True)
+def test_no_match_sends_no_event(client, db, fake_user_events):
+    jane = db.query(User).filter(User.email == "jane@test.com").first()
+    client.post(SWIPE_URL, json={"to_user_id": jane.user_id, "swipe_type": "like"})
+    assert fake_user_events == []

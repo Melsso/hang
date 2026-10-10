@@ -4,12 +4,16 @@ import { useToast } from "../components/global/ToastProvider";
 import ActionBar from "../components/global/ActionBar";
 import ProfileCard from "../components/swipes/SwipeCard";
 import SwipeAction from "../components/swipes/SwipeAction";
+import MatchModal from "../components/swipes/MatchModal";
 import { get_swipe_profiles, swipe_action } from "../api/swipes";
 import type { SwipeProfile } from "../components/swipes/SwipeCard";
+
+type Match = { name: string; imageUrl: string | null };
 
 export default function Swipes() {
   const [profiles, setProfiles] = useState<SwipeProfile[] | null>(null);
   const [index, setIndex] = useState(0);
+  const [match, setMatch] = useState<Match | null>(null);
   const { showToast } = useToast();
 
   useEffect(() => {
@@ -46,6 +50,12 @@ export default function Swipes() {
         showToast("Something went wrong, try again later.", "error");
         return;
       }
+      if (result.conversation) {
+        setMatch({
+          name: profile.first_name,
+          imageUrl: profile.images[0]?.image_url ?? null,
+        });
+      }
       if (index + 1 >= profiles.length) {
         const feed = await get_swipe_profiles();
         if (feed.status === "ok") {
@@ -71,6 +81,10 @@ export default function Swipes() {
       />
 
       <SwipeAction onSwipe={handleSwipe} />
+
+      {match && (
+        <MatchModal name={match.name} imageUrl={match.imageUrl} onClose={() => setMatch(null)} />
+      )}
     </div>
   );
 }

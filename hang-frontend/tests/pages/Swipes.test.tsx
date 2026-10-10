@@ -1,3 +1,4 @@
+import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -39,9 +40,11 @@ function profile(id: number, name: string): SwipeProfile {
 
 function renderPage() {
   return render(
-    <ToastProvider>
-      <Swipes />
-    </ToastProvider>
+    <MemoryRouter>
+      <ToastProvider>
+        <Swipes />
+      </ToastProvider>
+    </MemoryRouter>
   );
 }
 
@@ -122,5 +125,26 @@ describe("Swipes page", () => {
 
     expect(await screen.findByText("Something went wrong, try again later.")).toBeInTheDocument();
     expect(screen.getByText("Jane")).toBeInTheDocument();
+  });
+
+  it("shows the match overlay when a swipe creates a conversation", async () => {
+    const user = userEvent.setup();
+    vi.mocked(get_swipe_profiles).mockResolvedValue({
+      status: "ok",
+      profiles: [profile(1, "Jane"), profile(2, "Amy")],
+    });
+    vi.mocked(swipe_action).mockResolvedValue({
+      success: true,
+      conversation: { conversation_id: 9 },
+    });
+
+    renderPage();
+
+    await screen.findByText("Jane");
+    await user.click(screen.getByText("like"));
+
+    expect(await screen.findByText("It's a match!")).toBeInTheDocument();
+    await user.click(screen.getByText("Keep swiping"));
+    expect(screen.queryByText("It's a match!")).not.toBeInTheDocument();
   });
 });

@@ -542,3 +542,56 @@ def test_delete_conversation_only_removes_target(client, db):
         .first()
         is not None
     )
+
+
+NEW_MATCH_SEED = {
+    User: [
+        make_user_row("john@test.com", "John"),
+        make_user_row("jane@test.com", "Jane"),
+    ],
+    Conversation: [
+        {
+            "user1_id": lambda c: c[User][0].user_id,
+            "user2_id": lambda c: c[User][1].user_id,
+            "user1_seen": True,
+            "user2_seen": False,
+        }
+    ],
+    Message: [
+        {
+            "conversation_id": lambda c: c[Conversation][0].conversation_id,
+            "sender_id": lambda c: c[User][0].user_id,
+            "content": "hey",
+            "is_read": False,
+        }
+    ],
+}
+
+
+@pytest.mark.parametrize("db", [NEW_MATCH_SEED], indirect=True)
+@pytest.mark.parametrize("current_user_email", ["jane@test.com"], indirect=True)
+def test_notifications_counts_new_matches_and_unread(client, db):
+    assert client.get("/api/conversations/notifications").json() == {
+        "new_matches": 1,
+        "unread_messages": 1,
+    }
+    assert client.get("/api/conversations").json()[0]["is_new_match"] is True
+
+
+@pytest.mark.parametrize("db", [NEW_MATCH_SEED], indirect=True)
+@pytest.mark.parametrize("current_user_email", ["jane@test.com"], indirect=True)
+def test_opening_conversation_clears_new_match(client, db):
+    conv = db.info["seeded"][Conversation][0]
+    client.get(f"/api/conversations/{conv.conversation_id}/messages")
+
+    assert client.get("/api/conversations/notifications").json() == {
+        "new_matches": 0,
+        "unread_messages": 0,
+    }
+
+
+@pytest.mark.parametrize("db", [NEW_MATCH_SEED], indirect=True)
+@pytest.mark.parametrize("current_user_email", ["john@test.com"], indirect=True)
+def test_initiator_has_no_new_match(client, db):
+    body = client.get("/api/conversations/notifications").json()
+    assert body["new_matches"] == 0

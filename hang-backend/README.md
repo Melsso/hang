@@ -29,7 +29,7 @@ hang-backend/
 │   └── main.py
 ├── tests/           unit tests (testcontainers Postgres and Redis)
 ├── smoke_tests/     infrastructure wiring tests (testcontainers + in-process S3 via moto)
-├── dev_utils/       load test seed, client and runner script
+├── dev_utils/       load test seed, client and runner script, demo test seed, demo runner script
 ├── Dockerfile.hang      API image
 ├── Dockerfile.loadtest  load test image
 ├── logging.json
@@ -45,7 +45,7 @@ All routes are under `/api`. Authenticated routes read the `access_token` cookie
 | Auth | `GET /auth/session`, `POST /auth/register`, `POST /auth/login`, `POST /auth/logout`, `GET /auth/login/google`, `GET /auth/login/google/callback` |
 | Users | `GET /users/profile`, `POST /users/profile`, `GET /users/profile/{user_id}` (matched users only), `POST /users/profile/upload-image`, `POST /users/profile/block`, `POST /users/profile/report-create` |
 | Swipes | `GET /swipes/home` (up to 20 scored profiles), `POST /swipes/swipe-action` (`like`, `pass`, `super_like`) |
-| Conversations | `GET /conversations`, `GET /conversations/{id}/messages?before_message_id=`, `POST /conversations/delete/{id}` |
+| Conversations | `GET /conversations`, `GET /conversations/{id}/messages?before_message_id=`, `POST /conversations/delete/{id}` `GET /conversations/notifications`|
 | Settings | `GET /settings/blocks`, `POST /settings/unblock`, `GET /settings/reports`, `POST /settings/report-delete`, `POST /settings/change-password`, `POST /settings/delete-account` |
 | WebSocket | `/ws/conversations` |
 | Metrics | `GET /metrics` (not under `/api`) |
@@ -77,6 +77,7 @@ Server to client:
 | `{"type":"typing","conversation_id":N,"user_id":N,"is_typing":bool}` | Typing state |
 | `{"type":"read","conversation_id":N,"user_id":N}` | Messages read |
 | `{"type":"error","conversation_id":N,"reason":"conversation_unavailable"}` | Send rejected (blocked or deleted) |
+| `{"type":"match","conversation_id":N,"user_id":N,"name":"..."}` | Travels on the per-user Redis channel and is not queued |
 
 Client to server (all except `pong` require `conversation_id`):
 

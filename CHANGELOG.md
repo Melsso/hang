@@ -12,15 +12,19 @@ First tagged version.
 - Profiles with images (drag to reorder, delete), interests, country and preferences.
 - Swipe feed (like / pass / super like), scored by country, shared interests and preference, capped at 20 profiles per fetch.
 - Matching on mutual likes, with a unique conversation per user pair.
+- Match notifications: a match overlay for the swiper, a live toast and "New match" pill for the other user when online, and a dot on Conversations for new matches and unread messages (stored per conversation, nothing is queued).
 - Real-time messaging over WebSockets: rooms per conversation, typing indicators, read receipts, cursor-based pagination.
-- Redis pub/sub fan-out so any API replica can deliver to any connected client.
+- Redis pub/sub fan-out so any API replica can deliver to any connected client, including per-user channels (`user:<id>`) for match events.
 - WebSocket heartbeat (ping/pong), stale-socket eviction, and a `ready` frame sent once a socket is registered in its rooms.
 - Block, report, unblock, change password and delete account.
-- Frontend route guards backed by `/api/auth/session`.
+- Frontend route guards backed by `/api/auth/session`, and a "Please complete your profile" toast when the feed is locked.
 - Shared tiered rate limits (`core/limits.py`) stored in Redis, keyed by user id or client IP.
 - Prometheus metrics, a Grafana dashboard (request rate, p95 latency, 5xx rate, open WebSockets) and structured JSON logs.
 - Load test tooling that runs inside the Docker network, with a readiness handshake and server error frame counting.
-- Smoke tests with Postgres and Redis from testcontainers and S3 from moto.
+- Demo seed script (`dev_utils/demo_seed.py`) that creates two demo accounts and a populated feed with pictures.
+- Backend unit tests, smoke tests (Postgres and Redis from testcontainers, S3 from moto) and frontend unit tests (Vitest + Testing Library).
+- GitHub Actions: backend CI, frontend CI (lint, test, build) and tag-based GitHub releases.
+- `.dockerignore` to keep the nginx image build context small.
 
 ### Changed
 - Authentication happens before `accept()`; rejected sockets close with code 1008.
@@ -36,6 +40,7 @@ First tagged version.
 - Prometheus discovers scaled API replicas through DNS service discovery.
 - `/api/auth/session` returns an unauthenticated response instead of logging an error.
 - Frontend uses relative URLs and derives `ws://` / `wss://` from the page origin.
+- Frontend lint is clean and enforced in CI; the nginx image installs with `npm ci`.
 
 ### Fixed
 - Browser sockets were evicted after about 60 seconds because the client never answered pings.
@@ -45,9 +50,10 @@ First tagged version.
 - Broadcast created an empty room entry per conversation and one dead socket skipped the rest.
 - Redis subscriber and heartbeat loop did not recover from errors.
 - Messages could be lost when a sender was active before the receiver was registered in its rooms.
+- A conversation created while a socket was open was not joined, so its first message closed the socket.
 - Reports modal removed every row on delete.
 - Delete account did not clear the cookie or leave the page.
-- Google accounts without a birthdate could not load their profile.
+- Google accounts without a birthdate could not load their profile, and their locked feed gave no explanation.
 - Grafana 5xx and latency queries, and the unreachable Prometheus target.
 - Test image pulls (MinIO) replaced with an in-process S3 server.
 

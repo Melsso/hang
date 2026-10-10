@@ -5,9 +5,11 @@ Built as a demonstration of a horizontally scalable real-time backend: FastAPI b
 stateless API replicas, WebSockets fanned out through Redis pub/sub, PostgreSQL, and a Prometheus and
 Grafana monitoring stack, all running in Docker.
 
-> **Demo video:** _coming soon_ <!-- DEMO_VIDEO_URL -->
-
 Version 0.1.0 · [Changelog](./CHANGELOG.md) · [Load test report](./hang-backend/LOAD_TEST.md) · MIT
+
+## Demo
+
+https://github.com/user-attachments/assets/f6411c14-d90f-4967-961b-bea334b05726
 
 ## Features
 
@@ -15,11 +17,15 @@ Version 0.1.0 · [Changelog](./CHANGELOG.md) · [Load test report](./hang-backen
 - **Profiles:** images (reorder, delete, up to 6), bio, country, interests, preferences.
 - **Swipes:** like / pass / super like. The feed is scored by country, shared interests and preference,
   and returns up to 20 profiles at a time. A mutual like creates exactly one conversation.
+- **Match notifications:** a match overlay for the person who completes the match; the other person gets
+  a live toast if they are on the Conversations page, and a dot on Conversations (plus a "New match"
+  pill) until they open it. Nothing is queued: the state lives on the conversation.
 - **Chat:** WebSocket rooms per conversation, typing indicators, read receipts, cursor-based message pagination.
 - **Safety and account:** block, report, unblock, change password, delete account.
 - **Operations:** shared rate limits, Prometheus metrics, Grafana dashboard, JSON logs, CI.
 
-Google sign-ups start without a birthdate, so their feed is empty until they set one in their profile.
+Google sign-ups start without a birthdate, so their feed is locked (with a "Please complete your
+profile" toast) until they set one in their profile.
 
 ## Architecture
 
@@ -47,7 +53,8 @@ Google sign-ups start without a birthdate, so their feed is empty until they set
 ```
 
 A message is persisted by the replica that receives it, then published to `conversation:<id>` in Redis.
-Every replica subscribes to `conversation:*` and delivers to the sockets it holds in that room.
+Every replica subscribes to `conversation:*` and `user:*` and delivers to the sockets it holds. Match
+events use the per-user channel, so they reach the right user on whichever replica holds their socket.
 
 ## Services
 
@@ -115,12 +122,32 @@ Requirements: Docker, plus Poetry and Node 22 if you want to run tests or the fr
    ./stop.sh
 ```
 
-Postgres has no volume by default. `stop.sh` only stops the containers, so data survives that, but removing
-the `hang-db-local` container deletes it. To keep data across removals, add
+Postgres has no named volume by default. `stop.sh` only stops the containers, so data survives that, but
+removing the `hang-db-local` container deletes it. To keep data across removals, add
 `-v hang_postgres_data:/var/lib/postgresql/data` to the Postgres `docker run` in `start.sh`.
 
 The schema is created with `create_all` on startup and there are no migrations. After a model change,
-recreate the database container.
+recreate the database: `docker compose down && docker rm -fv hang-db-local && ./start.sh 3`.
+
+## Demo data
+
+Postgres and Redis are not published to the host, so the seed script runs in a container on the Docker
+network. From `hang-backend`:
+
+```bash
+chmod +x dev_utils/run_demo_seed.sh
+NETWORK=hang-network DB_HOST=hang-db-local REDIS_HOST=hang-redis-local ./dev_utils/run_demo_seed.sh
+```
+
+It creates two demo accounts (`jake@hang-demo.com` and `sam@hang-demo.com`, password
+`demo-password-123`) and twelve more profiles to fill the feed. Five of them have already liked both demo
+accounts, so liking them back produces an instant match. Pictures are taken from
+`hang-backend/dev_utils/resources/male` and `.../female` (you provide them; one per user). The script is
+re-runnable: it deletes the previous demo users first. Add `--purge-loadtest` to also remove load test
+users.
+
+To use two accounts at once, log in from two different browsers (or a normal and a private window), since
+the session is a cookie shared by all windows of one browser profile.
 
 ## Testing
 
@@ -139,6 +166,7 @@ Frontend:
 cd hang-frontend
 npm ci
 npm run lint
+npm test
 npm run build
 ```
 
@@ -156,8 +184,8 @@ The test also found two real bugs. Methodology, results, caveats and reproductio
 
 ```text
 hang/
-├── hang-backend/        FastAPI service, tests, load test tooling
-├── hang-frontend/       React + TypeScript app
+├── hang-backend/        FastAPI service, tests, load test and demo seed tooling
+├── hang-frontend/       React + TypeScript app and its tests
 ├── infra/
 │   ├── nginx/           nginx image (builds the frontend) and config
 │   ├── prometheus/      Prometheus image and scrape config
@@ -178,6 +206,8 @@ hang/
   restart nginx (`docker restart hang-nginx`).
 - Access tokens last `ACCESS_TOKEN_EXPIRE_MINUTES` (30 by default) and there is no refresh flow.
 - Delivery over Redis pub/sub is fire-and-forget: there are no acknowledgements or offline delivery.
+  Match events for offline users are not queued; they see the dot on their next page load.
+- The notification dot refreshes on navigation. Only the Conversations page holds a WebSocket.
 - Single-host Docker deployment only; there is no cloud deployment.
 
 ## License
