@@ -1,0 +1,396 @@
+from fastapi import Depends, Request, HTTPException, UploadFile
+from sqlalchemy.orm import Session
+from sqlalchemy import or_, and_
+from sqlalchemy.exc import SQLAlchemyError
+from jose import jwt, JWTError
+from datetime import date
+
+from typing import Annotated, Optional
+from uuid import uuid4
+import imghdr
+import logging
+
+from hang.schemas.users import UserResponse, UserCreate
+from hang.schemas.config import conf
+from hang.models.db_models import User, UserImage, UserBlock, UserReport
+
+from hang.core.database import get_db
+from hang.core.storage import StorageService
+from hang.helpers.auth import hash_password
+
+
+logger = logging.getLogger("Hang")
+
+
+def get_current_user(request: Request, db: Annotated[Session, Depends(get_db)]) -> User:
+    token = request.cookies.get("access_token")
+
+    if not token:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    try:
+        payload = jwt.decode(token, conf.SECRET_KEY, algorithms=[conf.ALGORITHM])
+
+        user_id = payload.get("sub")
+
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Invalid token")
+
+        user = db.query(User).filter(User.user_id == int(user_id)).first()
+
+        if not user:
+            raise HTTPException(status_code=401, detail="User not found")
+
+        request.state.user_id = user.user_id
+        return user
+
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+
+def is_18_or_older(birthdate: date) -> bool:
+    today = date.today()
+
+    age = today.year - birthdate.year
+    if (today.month, today.day) < (birthdate.month, birthdate.day):
+        age -= 1
+
+    return age >= 18
+
+
+def register_user(db: Session, user_data: UserCreate) -> tuple[Optional[User], str]:
+    new_user = User(
+        first_name=user_data.first_name,
+        last_name=user_data.last_name,
+        email=user_data.email.lower(),
+        password=hash_password(user_data.password),
+        birthdate=user_data.birthdate,
+        bio=user_data.bio,
+        country=user_data.country,
+        gender=user_data.gender,
+        interested_in=user_data.interested_in,
+        interests=user_data.interests,
+        is_active=True,
+    )
+
+    if new_user.birthdate is None:
+        return None, "Birthdate is required."
+    if not is_18_or_older(new_user.birthdate):
+        return None, "You must be over 18 years old."
+
+    try:
+        db.add(new_user)
+        db.commit()
+        db.refresh(new_user)
+        logger.info(
+            "hang_event",
+            extra={
+                "event": "db_user_create",
+                "status": "success",
+                "context": {
+                    "location": "register_user",
+                    "user_id": new_user.user_id,
+                },
+            },
+        )
+
+    except Exception as exc:
+        db.rollback()
+        logger.error(
+            "hang_event",
+            extra={
+                "event": "db_user_create",
+                "status": "failed",
+                "error_type": type(exc).__name__,
+                "error_message": str(exc),
+                "context": {
+                    "location": "register_user",
+                    "email": user_data.email.lower(),
+                },
+            },
+        )
+        return None, "Something unexpected happened."
+
+    return new_user, "success"
+
+
+def create_user_resp_data(user: User, storage: StorageService) -> dict:
+    user_resp_data = UserResponse.model_validate(user).model_dump(mode="json")
+
+    for img in user_resp_data["images"]:
+        img["image_url"] = storage.build_image_url(img["image_key"])
+
+    return user_resp_data
+
+
+def check_email_availability(db: Session, email: str, user_id: Optional[int]) -> bool:
+    query = db.query(User).filter(User.email == email.lower())
+    if user_id is not None:
+        query = query.filter(User.user_id != user_id)
+
+    return query.first() is None
+
+
+def apply_profile_field_updates(user: User, update_data: dict) -> None:
+    for key, value in update_data.items():
+        if key in {"deleted_images", "images"}:
+            continue
+
+        if getattr(user, key, None) != value:
+            setattr(user, key, value)
+
+
+def apply_image_updates(user: User, update_data: dict, db: Session) -> list[str]:
+    deleted_img_ids = set(update_data.get("deleted_images") or [])
+    keys_to_delete = []
+
+    images_to_delete = [img for img in user.images if img.image_id in deleted_img_ids]
+
+    for img in images_to_delete:
+        db.delete(img)
+        keys_to_delete.append(img.image_key)
+
+    image_updates = update_data.get("images") or []
+
+    if image_updates:
+        image_map = {
+            img.image_id: img
+            for img in user.images
+            if img.image_id not in deleted_img_ids
+        }
+
+        for img_update in image_updates:
+            img_id = img_update.get("image_id")
+            position = img_update.get("position")
+            img = image_map.get(img_id)
+
+            if img and position is not None:
+                img.position = position
+
+        user.images.sort(key=lambda x: x.position)
+    return keys_to_delete
+
+
+def is_profile_incomplete(user: User) -> bool:
+    return not user.bio or not user.birthdate or not user.interests
+
+
+def update_profile_info(db, update_data, user, storage) -> tuple[bool, str]:
+    apply_profile_field_updates(user, update_data)
+
+    error = None
+    if user.birthdate is None:
+        error = "Birthdate is required."
+    elif not is_18_or_older(user.birthdate):
+        error = "You must be over 18 years old."
+    if error:
+        db.rollback()
+        return False, error
+
+    keys_to_delete = apply_image_updates(user, update_data, db)
+    try:
+        db.commit()
+    except SQLAlchemyError as exc:
+        db.rollback()
+        logger.error(
+            "hang_event",
+            extra={
+                "event": "user_update",
+                "status": "failed",
+                "error_type": type(exc).__name__,
+                "error_message": str(exc),
+                "context": {"location": "update_profile_info"},
+            },
+        )
+        return False, "Could not save profile."
+
+    db.refresh(user)
+    storage.delete_many(keys=keys_to_delete)
+    return True, "success"
+
+
+def block_user(db: Session, blocker_id: int, blocked_id: int) -> bool:
+    if blocker_id == blocked_id:
+        return False
+
+    existing = (
+        db.query(UserBlock)
+        .filter(
+            UserBlock.blocker_id == blocker_id,
+            UserBlock.blocked_id == blocked_id,
+        )
+        .first()
+    )
+
+    if existing:
+        return True
+
+    block = UserBlock(blocker_id=blocker_id, blocked_id=blocked_id)
+
+    db.add(block)
+    db.commit()
+
+    return True
+
+
+def is_blocked(db: Session, user_id: int, target_user_id: int) -> bool:
+    return (
+        db.query(UserBlock)
+        .filter(
+            or_(
+                and_(
+                    UserBlock.blocker_id == user_id,
+                    UserBlock.blocked_id == target_user_id,
+                ),
+                and_(
+                    UserBlock.blocker_id == target_user_id,
+                    UserBlock.blocked_id == user_id,
+                ),
+            )
+        )
+        .first()
+        is not None
+    )
+
+
+def report_user(
+    db: Session,
+    reporter_id: int,
+    reported_id: int,
+    reason: str,
+    message: Optional[str],
+) -> bool:
+    if reporter_id == reported_id:
+        return False
+
+    existing = (
+        db.query(UserReport)
+        .filter(
+            UserReport.reporter_id == reporter_id,
+            UserReport.reported_id == reported_id,
+        )
+        .first()
+    )
+
+    if existing:
+        return True
+
+    report = UserReport(
+        reporter_id=reporter_id,
+        reported_id=reported_id,
+        reason=reason,
+        message=message,
+    )
+
+    db.add(report)
+    db.commit()
+
+    return True
+
+
+async def inspect_and_collect_files(
+    files: list[UploadFile], current_count: int
+) -> tuple[list[str], list[tuple[bytes, str]]]:
+    errs: list[str] = []
+    file_payloads: list[tuple[bytes, str]] = []
+
+    if current_count + len(files) > conf.MAX_IMAGES:
+        errs.append(f"Maximum of {conf.MAX_IMAGES} images allowed")
+        return errs, file_payloads
+
+    for f in files:
+        contents = await f.read()
+
+        if not contents:
+            errs.append("Empty file provided.")
+            continue
+
+        if len(contents) > conf.MAX_IMAGE_SIZE:
+            errs.append("File too large.")
+            continue
+
+        ext = imghdr.what(None, h=contents)
+
+        if ext is None:
+            errs.append("Could not detect image type.")
+            continue
+
+        if ext not in conf.ALLOWED_IMAGE_TYPES:
+            errs.append("Image type not allowed.")
+            continue
+
+        file_payloads.append((contents, ext))
+
+    return errs, file_payloads
+
+
+def process_file_payloads(
+    db: Session,
+    file_payloads: list[tuple[bytes, str]],
+    user: User,
+    storage: StorageService,
+) -> Optional[str]:
+    next_position = max((img.position for img in user.images), default=-1) + 1
+
+    elements_to_upload: list[tuple[str, bytes, str]] = []
+    uploaded_keys: list[str] = []
+    images_to_add: list[UserImage] = []
+
+    for contents, ext in file_payloads:
+        filename = f"{uuid4().hex}.{ext}"
+        key = f"users/{user.user_id}/images/{filename}"
+
+        elements_to_upload.append((key, contents, ext))
+        uploaded_keys.append(key)
+
+        images_to_add.append(
+            UserImage(
+                user_id=user.user_id,
+                image_key=key,
+                position=next_position,
+            )
+        )
+
+        next_position += 1
+
+    try:
+        storage.upload_many(files=elements_to_upload)
+
+        for img in images_to_add:
+            db.add(img)
+
+        db.commit()
+
+    except SQLAlchemyError as exc:
+        db.rollback()
+        if uploaded_keys:
+            storage.delete_many(keys=uploaded_keys)
+        logger.error(
+            "hang_event",
+            extra={
+                "event": "user_update",
+                "status": "failed",
+                "error_type": type(exc).__name__,
+                "error_message": str(exc),
+                "context": {"location": "process_file_payloads"},
+            },
+        )
+
+        return "Failed to save uploaded images."
+
+    except Exception as exc:
+        if uploaded_keys:
+            storage.delete_many(keys=uploaded_keys)
+        logger.error(
+            "hang_event",
+            extra={
+                "event": "user_update",
+                "status": "failed",
+                "error_type": type(exc).__name__,
+                "error_message": str(exc),
+                "context": {"location": "process_file_payloads"},
+            },
+        )
+        return "Failed to upload images."
+
+    return None

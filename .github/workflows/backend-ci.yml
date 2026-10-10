@@ -1,0 +1,82 @@
+name: Backend CI
+
+on:
+  push:
+    branches: [main, dev]
+    paths:
+      - "hang-backend/**"
+      - ".github/workflows/backend-ci.yml"
+  pull_request:
+    branches: [main, dev]
+    paths:
+      - "hang-backend/**"
+      - ".github/workflows/backend-ci.yml"
+
+defaults:
+  run:
+    working-directory: hang-backend
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+
+    env:
+      DB_USER: ci
+      DB_PASSWORD: ci
+      DB_NAME: ci
+      DB_HOST: localhost
+      DB_PORT: "5432"
+      REDIS_HOST: localhost
+      REDIS_PORT: "6379"
+      SECRET_KEY: ci-secret-key
+      ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES: "30"
+      MAX_IMAGES: "6"
+      MAX_IMAGE_SIZE: "5000000"
+      ALLOWED_IMAGE_TYPES: "png,jpeg,jpg"
+      R2_ACCESS_KEY_ID: ci
+      R2_SECRET_ACCESS_KEY: ci
+      R2_BUCKET_NAME: ci-bucket
+      R2_ENDPOINT: "https://example.test"
+      GOOGLE_CLIENT_ID: ci
+      GOOGLE_CLIENT_SECRET: ci
+      GOOGLE_REDIRECT_URI: "https://example.test/callback"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: latest
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+
+      - name: Cache Poetry venv
+        uses: actions/cache@v4
+        with:
+          path: hang-backend/.venv
+          key: poetry-${{ runner.os }}-${{ hashFiles('hang-backend/poetry.lock') }}
+          restore-keys: |
+            poetry-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: poetry install --no-interaction
+
+      - name: Lint with ruff
+        run: poetry run ruff check .
+
+      - name: Type check with mypy
+        run: poetry run mypy .
+
+      - name: Run unit tests
+        run: poetry run pytest tests
+
+      - name: Run smoke tests
+        run: poetry run pytest smoke_tests

@@ -1,0 +1,70 @@
+[project]
+name = "hang"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "Mallem Sofiane",email = "melsopv@gmail.com"}
+]
+readme = "README.md"
+requires-python = ">=3.11,<4.0"
+dependencies = [
+    "fastapi (>=0.136.1,<0.137.0)",
+    "pydantic[email] (>=2.13.3,<3.0.0)",
+    "uvicorn[standard] (>=0.47.0,<0.48.0)",
+    "sqlalchemy (>=2.0.49,<3.0.0)",
+    "pycountry (>=26.2.16,<27.0.0)",
+    "pydantic-settings (>=2.14.0,<3.0.0)",
+    "psycopg[binary] (>=3.3.4,<4.0.0)",
+    "python-multipart (>=0.0.27,<0.0.28)",
+    "authlib (>=1.7.0,<2.0.0)",
+    "python-jose[cryptography] (>=3.5.0,<4.0.0)",
+    "passlib (==1.7.4)",
+    "bcrypt (==3.2.2)",
+    "boto3 (>=1.43.10,<2.0.0)",
+    "httpx (>=0.28.1,<0.29.0)",
+    "starlette (>=0.30,<1.0)",
+    "itsdangerous (>=2.2.0,<3.0.0)",
+    "slowapi (>=0.1.9,<0.2.0)",
+    "redis (>=7.4.0,<8.0.0)",
+    "prometheus-fastapi-instrumentator (>=7.1.0,<8.0.0)",
+]
+
+[tool.poetry]
+packages = [{include = "hang", from = "src"}]
+
+[tool.mypy]
+plugins = ["pydantic.mypy"]
+check_untyped_defs = true
+ignore_missing_imports = false
+
+[[tool.mypy.overrides]]
+module = [
+    "testcontainers.*",
+]
+ignore_missing_imports = true
+
+[tool.pydantic-mypy]
+init_typed = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[dependency-groups]
+dev = [
+    "ruff (>=0.15.13,<0.16.0)",
+    "mypy (>=2.3.0,<3.0.0)",
+    "pydantic (>=2.13.4,<3.0.0)",
+    "types-passlib (>=1.7.7.20260211,<2.0.0.0)",
+    "types-python-jose (>=3.5.0.20260408,<4.0.0.0)",
+    "types-authlib (>=1.7.2.20260724,<2.0.0.0)",
+    "boto3-stubs[s3] (>=1.43.57,<2.0.0)",
+    "ruff (>=0.15.21,<0.16.0)",
+    "pytest (>=9.1.1,<10.0.0)",
+    "testcontainers (>=4.14.2,<5.0.0)",
+    "pillow (>=12.3.0,<13.0.0)",
+    "moto[s3,server] (>=5.2.3,<6.0.0)",
+]
