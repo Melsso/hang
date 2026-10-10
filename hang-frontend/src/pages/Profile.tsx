@@ -43,6 +43,14 @@ function ProfileView({ userId }: { userId?: string }) {
     const [imageOrder, setImageOrder] = useState<ProfileImage[]>([]);
     const [deletedImages, setDeletedImages] = useState<number[]>([]);
 
+    const setFormData: React.Dispatch<React.SetStateAction<ProfileData>> = (
+        value
+    ) =>
+        setForm((prev) => {
+            if (prev === null) return prev;
+            return typeof value === "function" ? value(prev) : value;
+        });
+
     const fetchProfile = (): Promise<FullProfile | null> =>
         get_user_profile_info(userId ? Number(userId) : undefined);
 
@@ -169,7 +177,7 @@ function ProfileView({ userId }: { userId?: string }) {
                 <ProfileInfoPanel
                     profile={profile}
                     form={form}
-                    setForm={setForm}
+                    setForm={setFormData}
                     editMode={editMode}
                     setEditMode={setEditMode}
                     onSubmit={handleSubmitProfile}
