@@ -30,7 +30,13 @@ def init_db():
                 f"postgresql+psycopg://{conf.DB_USER}:{conf.DB_PASSWORD}"
                 f"@{conf.DB_HOST}:{conf.DB_PORT}/{conf.DB_NAME}"
             )
-            engine = create_engine(DATABASE_URL, echo=False)
+            engine = create_engine(
+                DATABASE_URL,
+                echo=False,
+                pool_size=10,
+                max_overflow=10,
+                pool_pre_ping=True,
+            )
 
             with engine.connect() as conn:
                 conn.execute(text("SELECT 1"))

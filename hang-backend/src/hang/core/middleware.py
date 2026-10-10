@@ -2,7 +2,8 @@ from starlette.middleware.sessions import SessionMiddleware
 from fastapi import Request
 from slowapi.util import get_remote_address
 from slowapi.middleware import SlowAPIMiddleware
-from slowapi import Limiter
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
 import time
 import uuid
@@ -21,12 +22,18 @@ def rate_limit_key(request: Request) -> str:
     return get_remote_address(request)
 
 
-limiter = Limiter(key_func=rate_limit_key)
+limiter = Limiter(
+    key_func=rate_limit_key,
+    storage_uri=conf.RATE_LIMIT_STORAGE_URI
+    or f"redis://{conf.REDIS_HOST}:{conf.REDIS_PORT}/1",
+    in_memory_fallback_enabled=True,
+)
 
 
 def register_middleware(app):
     app.state.limiter = limiter
     app.add_middleware(SlowAPIMiddleware)
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
     app.add_middleware(
         SessionMiddleware,

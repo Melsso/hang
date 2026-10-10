@@ -1,6 +1,7 @@
 import pytest
+from typing import Any
 
-from hang.models.db_models import User, Swipe, Conversation
+from hang.models.db_models import User, Swipe, Conversation, UserBlock
 from tests.utils import make_user_row
 
 
@@ -227,3 +228,117 @@ def test_swipe_like_mutual_creates_conversation(client, db):
         .first()
     )
     assert conversation is not None
+
+
+TWO_USERS: dict[Any, Any] = {
+    User: [
+        make_user_row("john@test.com", "John"),
+        make_user_row("jane@test.com", "Jane", gender="female", interested_in="male"),
+    ]
+}
+SWIPE_URL = "/api/swipes/swipe-action"
+
+
+@pytest.mark.parametrize("db", [TWO_USERS], indirect=True)
+@pytest.mark.parametrize("current_user_email", ["john@test.com"], indirect=True)
+def test_swipe_duplicate_is_idempotent(client, db):
+    jane = db.query(User).filter(User.email == "jane@test.com").first()
+    payload = {"to_user_id": jane.user_id, "swipe_type": "like"}
+
+    assert client.post(SWIPE_URL, json=payload).status_code == 200
+    assert client.post(SWIPE_URL, json=payload).status_code == 200
+    assert db.query(Swipe).count() == 1
+
+
+@pytest.mark.parametrize("db", [TWO_USERS], indirect=True)
+@pytest.mark.parametrize("current_user_email", ["john@test.com"], indirect=True)
+def test_swipe_on_self_or_unknown_user_rejected(client, db):
+    john = db.query(User).filter(User.email == "john@test.com").first()
+
+    response = client.post(
+        SWIPE_URL, json={"to_user_id": john.user_id, "swipe_type": "like"}
+    )
+    assert response.status_code == 400
+
+    response = client.post(SWIPE_URL, json={"to_user_id": 999999, "swipe_type": "like"})
+    assert response.status_code == 400
+
+    assert db.query(Swipe).count() == 0
+
+
+@pytest.mark.parametrize(
+    "db",
+    [
+        {
+            **TWO_USERS,
+            UserBlock: [
+                {
+                    "blocker_id": lambda c: c[User][1].user_id,
+                    "blocked_id": lambda c: c[User][0].user_id,
+                }
+            ],
+        }
+    ],
+    indirect=True,
+)
+@pytest.mark.parametrize("current_user_email", ["john@test.com"], indirect=True)
+def test_swipe_on_blocked_user_rejected(client, db):
+    jane = db.query(User).filter(User.email == "jane@test.com").first()
+
+    response = client.post(
+        SWIPE_URL, json={"to_user_id": jane.user_id, "swipe_type": "like"}
+    )
+
+    assert response.status_code == 400
+    assert db.query(Swipe).count() == 0
+
+
+@pytest.mark.parametrize("db", [TWO_USERS], indirect=True)
+@pytest.mark.parametrize("current_user_email", ["john@test.com"], indirect=True)
+def test_super_like_uses_underscore(client, db):
+    jane = db.query(User).filter(User.email == "jane@test.com").first()
+
+    response = client.post(
+        SWIPE_URL, json={"to_user_id": jane.user_id, "swipe_type": "super_like"}
+    )
+    assert response.status_code == 200
+
+    response = client.post(
+        SWIPE_URL, json={"to_user_id": jane.user_id, "swipe_type": "super-like"}
+    )
+    assert response.status_code == 422
+
+
+@pytest.mark.parametrize(
+    "db",
+    [
+        {
+            **TWO_USERS,
+            Conversation: [
+                {
+                    "user1_id": lambda c: c[User][1].user_id,
+                    "user2_id": lambda c: c[User][0].user_id,
+                }
+            ],
+            Swipe: [
+                {
+                    "from_user_id": lambda c: c[User][1].user_id,
+                    "to_user_id": lambda c: c[User][0].user_id,
+                    "swipe_type": "like",
+                }
+            ],
+        }
+    ],
+    indirect=True,
+)
+@pytest.mark.parametrize("current_user_email", ["john@test.com"], indirect=True)
+def test_mutual_like_never_creates_second_conversation(client, db):
+    jane = db.query(User).filter(User.email == "jane@test.com").first()
+
+    response = client.post(
+        SWIPE_URL, json={"to_user_id": jane.user_id, "swipe_type": "like"}
+    )
+
+    assert response.status_code == 200
+    assert response.json()["conversation"] is not None
+    assert db.query(Conversation).count() == 1

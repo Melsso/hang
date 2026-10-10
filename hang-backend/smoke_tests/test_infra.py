@@ -78,7 +78,7 @@ async def test_ws_manager_and_heartbeat_wired(app):
 
     assert ws_helpers.manager is not None
     await ws_helpers.manager.ping_all()
-    ws_helpers.manager.cleanup()
+    await ws_helpers.manager.cleanup()
 
 
 def test_oauth_client_registered(app):

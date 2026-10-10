@@ -2,13 +2,13 @@
 
 set -e
 
-NETWORK_NAME="hang_network"
+NETWORK_NAME="hang-network"
 
-REDIS_CONTAINER="local_redis"
-REDIS_IMAGE="local_redis_image"
+REDIS_CONTAINER="hang-redis-local"
+REDIS_IMAGE="hang-redis-image"
 
-DB_CONTAINER="local_db"
-DB_IMAGE="local_db_image"
+DB_CONTAINER="hang-db-local"
+DB_IMAGE="hang-db-image"
 
 APP_SCALE=${1:-1}
 
@@ -55,7 +55,8 @@ else
     fi
 
     echo "Creating Postgres container..."
-    docker run -d --name $DB_CONTAINER --env-file .db_env --network $NETWORK_NAME -p 5432 $DB_IMAGE
+    docker run -d --name $DB_CONTAINER --env-file infra/.db_env --network $NETWORK_NAME -p 5432 $DB_IMAGE
+    # -v hang_postgres_data:/var/lib/postgresql/data to keep db vol on kill
   fi
 fi
 

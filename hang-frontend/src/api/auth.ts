@@ -1,4 +1,3 @@
-// TODO this is no longer relevant, remove endpoint from backend as well
 export async function getSession() {
     const res = await fetch("/api/auth/session", {
         credentials: "include",
@@ -29,9 +28,9 @@ export async function logout() {
     return res.json();
 }
 
-export async function register(data: Record<string, any>) {
+export async function register(data: Record<string, unknown>) {
     const res = await fetch(
-        "http://localhost:8000/api/auth/register",
+        "/api/auth/register",
         {
             method: "POST",
             headers: {

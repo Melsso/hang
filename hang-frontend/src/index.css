@@ -1,5 +1,14 @@
 @import "tailwindcss";
 
+@theme {
+    --animate-fadeIn: fadeIn 0.2s ease-out;
+
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(-4px); }
+        to { opacity: 1; transform: none; }
+    }
+}
+
 html, body {
     height:100%;
 }
@@ -25,15 +34,11 @@ body {
     }
 
     /* CARD STYLES */
-    .card-container {
-        @apply w-2/5 h-[60vh] flex flex-col items-center justify-start gap-10 border border-[rgba(255,255,255,0.06)] rounded-lg p-6 bg-[#111111];
-    }
     .card-header {
         @apply font-bold text-2xl;
     }
 
     /* LOGIN STYLES */
-     /* gap-4"> */
     .login-form {
         @apply w-full flex flex-1 flex-col gap-5 overflow-y-auto items-center;
     }

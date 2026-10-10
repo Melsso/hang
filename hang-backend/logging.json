@@ -30,11 +30,6 @@
       "handlers": ["console"],
       "level": "INFO",
       "propagate": false
-    },
-    "hang": {
-      "handlers": ["console"],
-      "level": "INFO",
-      "propagate": false
     }
   }
 }

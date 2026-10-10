@@ -1,270 +1,185 @@
-# 🖤 Hang — Full-Stack Social Discovery Platform
+# Hang
 
-A production-style real-time social discovery platform built with **FastAPI, WebSockets, Redis Pub/Sub, PostgreSQL, React, TypeScript, and Dockerized multi-instance deployment behind Nginx load balancing**.
+A real-time social discovery app: create a profile, swipe, match on mutual likes, and chat live.
+Built as a demonstration of a horizontally scalable real-time backend: FastAPI behind nginx, several
+stateless API replicas, WebSockets fanned out through Redis pub/sub, PostgreSQL, and a Prometheus and
+Grafana monitoring stack, all running in Docker.
 
-This project demonstrates a **scalable distributed backend architecture for real-time communication systems**.
+> **Demo video:** _coming soon_ <!-- DEMO_VIDEO_URL -->
 
----
+Version 0.1.0 · [Changelog](./CHANGELOG.md) · [Load test report](./hang-backend/LOAD_TEST.md) · MIT
 
-# ⚡ Quick Summary
+## Features
 
-The platform allows users to:
-- Create and customize profiles
-- Discover users through swipe interactions
-- Match through mutual interests
-- Communicate through real-time conversations
-- Manage account settings, reports, and blocked users
+- **Auth:** email/password and Google OAuth, JWT in an HTTP-only cookie, 18+ enforced.
+- **Profiles:** images (reorder, delete, up to 6), bio, country, interests, preferences.
+- **Swipes:** like / pass / super like. The feed is scored by country, shared interests and preference,
+  and returns up to 20 profiles at a time. A mutual like creates exactly one conversation.
+- **Chat:** WebSocket rooms per conversation, typing indicators, read receipts, cursor-based message pagination.
+- **Safety and account:** block, report, unblock, change password, delete account.
+- **Operations:** shared rate limits, Prometheus metrics, Grafana dashboard, JSON logs, CI.
 
-The project focuses on building a realistic production architecture with:
-- containerized services
-- reverse proxy routing
-- horizontal scaling of stateless backend services
-- real-time WebSocket communication at scale
-- persistent relational data
-- monitoring infrastructure
+Google sign-ups start without a birthdate, so their feed is empty until they set one in their profile.
 
----
-
-# ✨ Features
-
-## 🔐 Authentication
-- Email/password authentication
-- Google OAuth login
-- Secure HTTP-only cookie sessions
-
-## 👤 User Profiles
-- Profile creation and editing
-- User images
-- Interests and preferences
-- Country and demographic information
-
-## ⚙️ Account Management
-- Change password
-- Delete account
-- View reports
-- Block/unblock users
-
-## ❤️ Swipe System
-- Like/pass interactions
-- Persistent swipe history
-- Match creation through mutual likes
-- Swipe state persistence
-
-## 🔄 Pub/Sub Architecture (Redis)
-- Redis-backed event propagation across multiple app instances
-- Enables horizontal scaling of WebSocket servers
-
-## 💬 Real-Time Messaging
-- WebSocket communication
-- Room-based routing per conversation
-- Live typing indicators
-- Unread message tracking
-- Read receipts per message
-
-## 📄 Pagination
-- Cursor-based pagination for messages
-- Efficient scroll-based message loading
-- Optimized for large conversations
-
-## ⚙️ Scalable Infrastructure
-- Multi-instance FastAPI deployment
-- Nginx reverse proxy with load balancing
-- Stateless application design
-
-## 🐳 Full Dockerized Environment
-- Containerized backend, Redis, PostgreSQL, Nginx and isolated React frontend
-- One-command startup scripts
-- Reproducible development environment
-
----
-
-# 🏗 Architecture Overview
+## Architecture
 
 ```text
-                              Users
-                                │
-                                ▼
-                      ┌─────────────────┐
-                      │      Nginx      │
-                      │ Reverse Proxy & │
-                      │ Static Hosting  │
-                      └────────┬────────┘
-                               │
-             ┌─────────────────┴─────────────────┐
-             │                                   │
-             │                              FastAPI Instances
-             │                                REST API
-             │                              WebSockets             
-             │                                   │ 
-             │                       ┌───────────┴───────────┐
-             ▼                       ▼                       ▼
-    React Frontend (Vite)       ┌─────────┐              ┌─────────┐
-        Static Assets           │FastAPI-1│              │FastAPI-2│
-                                └─────┬───┘              └─────┬───┘
-                                      └──────────┬─────────────┘
-                                                 │
-                           ┌─────────────────────┼─────────────────────┐
-                           │                     │                     │
-                           ▼                     ▼                     ▼
-                    PostgreSQL              Redis Pub/Sub       S3-Compatible
-                      Database            Cache & Messaging     Object Storage
-              
-    ─────────────────────────────────────────────────────────────────────────
-                                                 ▲
-                                                 │
-                                          /metrics endpoint
-                                                 │
-                                         ┌───────────────┐
-                                         │  Prometheus   │
-                                         └───────┬───────┘
-                                                 │
-                                                 ▼
-                                         ┌─────────────┐
-                                         │   Grafana   │
-                                         │ Dashboards  │
-                                         └─────────────┘
+                    Browser
+                       │
+                       ▼
+              ┌─────────────────┐
+              │      nginx      │  serves the React build, proxies /api, upgrades WebSockets
+              └────────┬────────┘
+                       │  api:8000 (Docker DNS, N replicas)
+          ┌────────────┼────────────┐
+          ▼            ▼            ▼
+      ┌───────┐    ┌───────┐    ┌───────┐
+      │ api-1 │    │ api-2 │    │ api-N │   stateless FastAPI: REST + WebSockets
+      └───┬───┘    └───┬───┘    └───┬───┘
+          └────────────┼────────────┘
+        ┌──────────────┼──────────────────┐
+        ▼              ▼                  ▼
+   PostgreSQL     Redis                S3-compatible
+   (data)         db0: pub/sub         object storage
+                  db1: rate limits     (Cloudflare R2 / S3)
+
+   Prometheus ──scrapes /metrics on every api replica──▶ Grafana
 ```
 
----
+A message is persisted by the replica that receives it, then published to `conversation:<id>` in Redis.
+Every replica subscribes to `conversation:*` and delivers to the sockets it holds in that room.
 
-# 🐳 Infrastructure
+## Services
 
-The entire system runs using Docker containers:
+| Service | Container | Notes |
+|---|---|---|
+| nginx + React build | `hang-nginx` | Published on `localhost:8000` |
+| API | `api` (scaled) | Not published; reached through nginx |
+| PostgreSQL 16 | `hang-db-local` | Started by `start.sh`, not published |
+| Redis 7 | `hang-redis-local` | Started by `start.sh`, not published |
+| Prometheus | `hang-prometheus` | Not published |
+| Grafana | `hang-grafana` | Published on `localhost:3000` |
 
-Services:
+All containers share the external Docker network `hang-network`.
 
-| Service | Purpose |
-|---|---|
-| nginx | Reverse proxy + frontend serving |
-| api | FastAPI backend |
-| postgres | Persistent database |
-| redis | Cache + realtime event layer |
-| prometheus | Metrics collection |
-| grafana | Monitoring dashboards |
+## Tech stack
 
----
+Backend: Python 3.11, FastAPI, SQLAlchemy 2, PostgreSQL, Redis, slowapi, Authlib, boto3, Pydantic.
+Frontend: React 19, TypeScript, Vite, Tailwind CSS 4, React Router 7, Framer Motion, dnd-kit.
+Infra: Docker, nginx, Prometheus, Grafana, GitHub Actions.
 
-# 🛠 Tech Stack
+## Running locally
 
-- Backend: FastAPI
-- Realtime: WebSockets
-- Authentication: JWT, OAuth (Google)
-- Storage: S3-compatible (AWS / R2)
-- Database: PostgreSQL
-- Frontend: React
-- Reverse Proxy: Nginx
-- Containerization: Docker
-- Monitoring: Prometheus, Grafana
+Requirements: Docker, plus Poetry and Node 22 if you want to run tests or the frontend dev server.
 
----
+1. Clone:
+```bash
+   git clone https://github.com/Melsso/hang
+   cd hang
+```
 
-# 📂 Project Structure
+2. Create the env files:
+```bash
+   cp hang-backend/.api.env.example hang-backend/.api_env
+   cp hang-backend/.db.env.example infra/.db_env
+```
+
+3. Fill them in. When running through `start.sh`:
+
+   | Variable | Value |
+   |---|---|
+   | `DB_HOST` | `hang-db-local` |
+   | `DB_PORT` | `5432` |
+   | `REDIS_HOST` | `hang-redis-local` |
+   | `REDIS_PORT` | `6379` |
+   | `DB_USER` / `DB_PASSWORD` / `DB_NAME` | must equal `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` in `infra/.db_env` |
+   | `SECRET_KEY` | `openssl rand -hex 32` |
+   | `COOKIE_SECURE` | `false` locally, `true` behind HTTPS |
+   | `GOOGLE_REDIRECT_URI` | `http://localhost:8000/api/auth/login/google/callback` (register it in the Google console) |
+   | `R2_*` | credentials for any S3-compatible bucket |
+
+   The full list is in [hang-backend/README.md](./hang-backend/README.md#configuration).
+
+4. Start with the number of API replicas you want:
+```bash
+   ./start.sh 3
+```
+   This creates the network, starts Redis and Postgres (building their images if needed), then builds and starts the compose stack.
+
+5. Open:
+   - App: http://localhost:8000
+   - Grafana: http://localhost:3000 (default `admin` / `admin`; the Prometheus datasource and dashboard are provisioned)
+
+6. Stop everything:
+```bash
+   ./stop.sh
+```
+
+Postgres has no volume by default. `stop.sh` only stops the containers, so data survives that, but removing
+the `hang-db-local` container deletes it. To keep data across removals, add
+`-v hang_postgres_data:/var/lib/postgresql/data` to the Postgres `docker run` in `start.sh`.
+
+The schema is created with `create_all` on startup and there are no migrations. After a model change,
+recreate the database container.
+
+## Testing
+
+```bash
+cd hang-backend
+poetry install
+poetry run ruff check .
+poetry run mypy .
+poetry run pytest                 # unit tests (tests/), needs Docker for testcontainers
+poetry run pytest smoke_tests     # infrastructure smoke tests, must run as a separate session
+```
+
+Frontend:
+
+```bash
+cd hang-frontend
+npm ci
+npm run lint
+npm run build
+```
+
+## Load testing
+
+The WebSocket layer was tested end to end through nginx, across three API replicas, with real Redis
+fan-out and real Postgres writes. Delivery is counted only when the other participant in a conversation
+receives the message.
+
+**100% delivery across 190,000 messages at up to 2,000 concurrent connections, p99 under 111 ms.**
+The test also found two real bugs. Methodology, results, caveats and reproduction steps are in
+[hang-backend/LOAD_TEST.md](./hang-backend/LOAD_TEST.md).
+
+## Project structure
 
 ```text
 hang/
-│
-├── hang-frontend/
-│ ├── src/
-│ ├── vite.config.ts
-│ └── README.md
-│
-├── hang-backend/
-│ ├── src/
-│ │ └── hang/
-│ ├── Dockerfile.hang
-│ ├── dev_utils/
-│ ├── .api.env.example
-│ ├── .db.env.example
-│ └── README.md
-│
+├── hang-backend/        FastAPI service, tests, load test tooling
+├── hang-frontend/       React + TypeScript app
 ├── infra/
-│ ├── nginx/
-│ ├── prometheus/
-│ ├── grafana/
-│ ├── Dockerfile.db
-│ └── Dockerfile.redis
-│
-├── docker-compose.yml
-├── start.sh
+│   ├── nginx/           nginx image (builds the frontend) and config
+│   ├── prometheus/      Prometheus image and scrape config
+│   ├── grafana/         Grafana image, provisioning and dashboard
+│   ├── Dockerfile.db    PostgreSQL image
+│   └── Dockerfile.redis Redis image
+├── .github/workflows/   backend-ci, frontend-ci, release
+├── docker-compose.yml   nginx, api, prometheus, grafana
+├── start.sh             creates network, Redis, Postgres, then the compose stack
 ├── stop.sh
-└── README.md
+├── CHANGELOG.md
+└── LICENSE
 ```
 
----
+## Known limitations
 
-# 🚀 Running Locally
+- nginx resolves `api:8000` once at startup. If the API containers are recreated with new addresses,
+  restart nginx (`docker restart hang-nginx`).
+- Access tokens last `ACCESS_TOKEN_EXPIRE_MINUTES` (30 by default) and there is no refresh flow.
+- Delivery over Redis pub/sub is fire-and-forget: there are no acknowledgements or offline delivery.
+- Single-host Docker deployment only; there is no cloud deployment.
 
-1. Clone the repository
-```bash
-    git clone https://github.com/Melsso/hang
-    cd hang
-```
+## License
 
-2. Configure environment variables
-Copy template and fill required values:
-```bash
-    cp .api.env.example .api_env
-    cp .db.env.example .db_env
-```
-Required services:
-- PostgreSQL credentials
-- Redis connection
-- Google OAuth credentials
-- S3 / R2 storage credentials
-
-
-3. Start the system
-```bash
-    ./start.sh NUMBER-OF-INSTANCES
-```
-This script:
-- creates required docker network
-- ensures Redis & PostgreSQL containers are running
-- builds and starts application services
-
-4. Stop system
-```bash
-    ./stop.sh
-```
-
----
-
-# 🌐 Access
-
-Application: http://localhost:8000/
-or whichever port you decide to bind nginx to.
-
----
-
-# 🧠 Engineering Highlights
-
-- **Production-style routing**: Nginx acts as the single entry point, serves frontend assets, proxies API requests and handles WebSocket upgrades
-- **Stateless backend architecture**: All FastAPI instances are stateless, enabling horizontal scaling behind a load balancer.
-- **Redis Pub/Sub event propagation**: Ensures real-time synchronization of messages across multiple backend instances.
-- **Containerized deployment**: Every infrastructure component runs independently and can be rebuilt reproducibly.
-
----
-
-# 📊 Load Testing
-
-Real end-to-end load testing of the websocket layer — actual connections through Nginx, actual Redis pub/sub fan-out across scaled instances, actual Postgres queries. Zero dropped messages across 25,000+ messages at up to 2,000 concurrent connections. The first attempt at this test also surfaced a real bug (a database session accidentally tied to each websocket's entire lifetime, capping concurrent users at ~15 per instance) that's since been fixed. Full methodology, the bug writeup, and honest interpretation of the results (including where the numbers should and shouldn't be trusted) are in [LOAD_TESTING.md](./hang-backend/LOAD_TEST.md).
-
----
-
-# ⚠️ Notes
-- External services (OAuth, S3, etc.) require valid credentials in .api_env
-
----
-
-# 📌 Future Improvements
-- Distributed tracing (request correlation across WS + HTTP)
-- Advanced message delivery guarantees (ACK system)
-- Push notifications for offline users
-- Mobile client integration
-- CI/CD pipeline
-- Cloud deployment
-
----
-
-# 📄 License
-MIT
+MIT, see [LICENSE](./LICENSE).

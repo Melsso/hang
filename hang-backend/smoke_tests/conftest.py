@@ -1,5 +1,6 @@
 import os
 import pytest
+import socket
 
 
 @pytest.fixture
@@ -23,16 +24,25 @@ def redis_container():
         yield r
 
 
-@pytest.fixture(scope="session")
-def minio_container():
-    from testcontainers.minio import MinioContainer
-
-    with MinioContainer() as m:
-        yield m
+def _free_port() -> int:
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        return s.getsockname()[1]
 
 
 @pytest.fixture(scope="session")
-def app_env(postgres_container, redis_container, minio_container):
+def s3_server():
+    from moto.server import ThreadedMotoServer
+
+    port = _free_port()
+    server = ThreadedMotoServer(ip_address="127.0.0.1", port=port, verbose=False)
+    server.start()
+    yield f"http://127.0.0.1:{port}"
+    server.stop()
+
+
+@pytest.fixture(scope="session")
+def app_env(postgres_container, redis_container, s3_server):
     os.environ["DB_USER"] = postgres_container.username
     os.environ["DB_PASSWORD"] = postgres_container.password
     os.environ["DB_NAME"] = postgres_container.dbname
@@ -50,12 +60,10 @@ def app_env(postgres_container, redis_container, minio_container):
     os.environ["MAX_IMAGE_SIZE"] = "5000000"
     os.environ["ALLOWED_IMAGE_TYPES"] = "png,jpeg,jpg"
 
-    os.environ["R2_ACCESS_KEY_ID"] = "minioadmin"
-    os.environ["R2_SECRET_ACCESS_KEY"] = "minioadmin"
+    os.environ["R2_ACCESS_KEY_ID"] = "test"
+    os.environ["R2_SECRET_ACCESS_KEY"] = "test"
     os.environ["R2_BUCKET_NAME"] = "smoke-test-bucket"
-    os.environ["R2_ENDPOINT"] = (
-        f"http://localhost:{minio_container.get_exposed_port(9000)}"
-    )
+    os.environ["R2_ENDPOINT"] = s3_server
 
     os.environ["GOOGLE_CLIENT_ID"] = "smoke-test"
     os.environ["GOOGLE_CLIENT_SECRET"] = "smoke-test"
@@ -65,7 +73,7 @@ def app_env(postgres_container, redis_container, minio_container):
 
 
 @pytest.fixture(scope="session")
-def ensure_bucket(app_env, minio_container):
+def ensure_bucket(app_env, s3_server):
     import boto3
 
     client = boto3.client(
@@ -73,7 +81,7 @@ def ensure_bucket(app_env, minio_container):
         endpoint_url=os.environ["R2_ENDPOINT"],
         aws_access_key_id=os.environ["R2_ACCESS_KEY_ID"],
         aws_secret_access_key=os.environ["R2_SECRET_ACCESS_KEY"],
-        region_name="auto",
+        region_name="us-east-1",
     )
     client.create_bucket(Bucket=os.environ["R2_BUCKET_NAME"])
     yield

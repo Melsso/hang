@@ -1,8 +1,19 @@
 import { deleteAccount } from "../../api/settings";
+import { useNavigate } from "react-router-dom";
+import { useToast } from "../global/ToastProvider";
 
 export default function DeleteAccountModal() {
+    const navigate = useNavigate();
+    const { showToast } = useToast();
+
     async function handleDelete() {
-        await deleteAccount();
+        const result = await deleteAccount();
+        if (!result) {
+            showToast("Could not delete account, try again later.", "error");
+            return;
+        }
+        showToast("Account deleted.", "success");
+        navigate("/");
     }
 
     return (

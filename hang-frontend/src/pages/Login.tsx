@@ -24,7 +24,6 @@ export default function Login() {
     };
 
     return (
-        // <div className="card-container">
         <div className="w-2/5 h-[60vh] flex flex-col items-center justify-start gap-4 border border-[rgba(255,255,255,0.06)] rounded-lg p-6 bg-[#111111]">
             <h2 className="card-header">Login</h2>
 

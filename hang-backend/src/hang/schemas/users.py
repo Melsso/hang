@@ -1,7 +1,34 @@
-from pydantic import BaseModel, EmailStr, Field, field_validator, ConfigDict
+from pydantic import (
+    BaseModel,
+    EmailStr,
+    Field,
+    field_validator,
+    ConfigDict,
+    AfterValidator,
+    StringConstraints,
+)
 from datetime import date
-from typing import List, Optional
+from typing import List, Optional, Annotated
 from enum import Enum
+
+import pycountry
+
+
+VALID_COUNTRIES = {c.alpha_2 for c in pycountry.countries}
+
+
+def _check_country(v: str) -> str:
+    v = v.upper()
+    if v not in VALID_COUNTRIES:
+        raise ValueError("Unknown country code")
+    return v
+
+
+CountryCode = Annotated[str, AfterValidator(_check_country)]
+Name = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=50)
+]
+Bio = Annotated[str, StringConstraints(max_length=500)]
 
 
 class Gender(str, Enum):
@@ -38,16 +65,16 @@ class Interests(str, Enum):
 
 
 class UserCreate(BaseModel):
-    first_name: str
-    last_name: str
+    first_name: Name
+    last_name: Name
     email: EmailStr
     birthdate: date
-    bio: str
+    bio: Bio
     gender: Gender
-    country: str
+    country: CountryCode
     interested_in: InterestedIn
-    interests: List[Interests]
-    password: str
+    interests: List[Interests] = Field(max_length=len(Interests))
+    password: str = Field(min_length=8, max_length=72)
 
 
 class UserLogin(BaseModel):
@@ -70,7 +97,7 @@ class UserResponse(BaseModel):
     last_name: str
     email: EmailStr
     country: str
-    birthdate: date
+    birthdate: Optional[date] = None
     bio: str
     gender: Gender
     interested_in: InterestedIn
@@ -110,13 +137,13 @@ class ImageUpdate(BaseModel):
 
 
 class UserUpdate(BaseModel):
-    first_name: Optional[str] = None
-    last_name: Optional[str] = None
-    email: Optional[EmailStr] = None
+    first_name: Optional[Name] = None
+    last_name: Optional[Name] = None
+    country: Optional[CountryCode] = None
+    bio: Optional[Bio] = None
     birthdate: Optional[date] = None
-    country: Optional[str] = None
+    email: Optional[EmailStr] = None
     gender: Optional[Gender] = None
-    bio: Optional[str] = None
     interested_in: Optional[InterestedIn] = None
     interests: Optional[List[Interests]] = None
 

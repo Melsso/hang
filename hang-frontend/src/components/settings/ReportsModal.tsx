@@ -1,15 +1,35 @@
 import { useState, useEffect } from "react";
 import { getReports, deleteReport } from "../../api/settings";
-import ModalRow from "./SettingsModal";
+import ModalRow from "./ModalRow";
 import { useToast } from "../global/ToastProvider";
 
+interface ReportedUser {
+    first_name: string;
+    last_name: string;
+    reported_id: number;
+    reason: string;
+    message: string | null;
+    created_at: string;
+}
+
 export default function ReportsModal() {
-    const [reports, setReports] = useState<any[]>([]);
+    const [reports, setReports] = useState<ReportedUser[]>([]);
     const { showToast } = useToast();
 
     useEffect(() => {
-        loadReports();
+        let cancelled = false;
+        (async () => {
+            const data = await getReports();
+            if (cancelled) return;
+            if (!data) {
+                showToast("Something went wrong, try again later.", "error");
+                return;
+            }
+            setReports(data);
+        })();
+        return () => { cancelled = true; };
     }, []);
+
     function formatDate(date: string) {
         return new Date(date).toLocaleString(undefined, {
             year: "numeric",
@@ -18,14 +38,6 @@ export default function ReportsModal() {
             hour: "2-digit",
             minute: "2-digit",
         });
-    }
-    async function loadReports() {
-        const data = await getReports();
-        if (!data) {
-            showToast("Something went wrong, try again later.", "error");
-            return;
-        }
-        setReports(data);
     }
 
     return (
@@ -36,7 +48,7 @@ export default function ReportsModal() {
 
             <div className="space-y-3">
                 {reports.map((report) => (
-                    <ModalRow key={report.report_id}>
+                    <ModalRow key={report.reported_id}>
                         <div>
                             <div className="text-white">
                                 {report.first_name} {report.last_name}
@@ -55,9 +67,7 @@ export default function ReportsModal() {
                                     showToast("Something went wrong, try again later.", "error");
                                     return;
                                 }
-                                setReports(prev =>
-                                    prev.filter(r => r.report_id !== report.report_id)
-                                );
+                                setReports(prev => prev.filter(r => r.reported_id !== report.reported_id));
                             }}
                         >
                             Delete

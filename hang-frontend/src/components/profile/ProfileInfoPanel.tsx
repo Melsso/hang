@@ -14,6 +14,7 @@ export type ProfileData = {
     last_name: string;
     bio: string;
     country: string;
+    birthdate?: string | null;
     gender: string;
     interested_in: string;
     interests: string[];
@@ -90,6 +91,16 @@ function ProfileInfoEdit({
                             first_name: e.target.value,
                         }))
                     }
+                    className="px-4 py-3 rounded-xl bg-[#222] text-white"
+                />
+            </div>
+            
+            <div className="flex flex-col gap-2">
+                <label className="text-sm text-white/60">Birthdate</label>
+                <input
+                    type="date"
+                    value={form.birthdate ?? ""}
+                    onChange={(e) => setForm((prev) => ({ ...prev, birthdate: e.target.value }))}
                     className="px-4 py-3 rounded-xl bg-[#222] text-white"
                 />
             </div>

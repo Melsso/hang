@@ -10,6 +10,9 @@ from sqlalchemy.orm import sessionmaker
 
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
+import os
+
+os.environ.setdefault("RATE_LIMIT_STORAGE_URI", "memory://")
 
 from hang.main import app
 from hang.core.database import get_db
@@ -145,7 +148,7 @@ def test_redis_client(redis_container, monkeypatch):
     rc = aioredis.Redis(
         host=redis_container.get_container_host_ip(),
         port=int(redis_container.get_exposed_port(6379)),
-        decode_responses=True,  # redis_subscriber does json.loads(message["data"]), needs str not bytes
+        decode_responses=True,
     )
 
     monkeypatch.setattr(ws_helpers, "redis_client", rc)

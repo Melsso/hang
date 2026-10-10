@@ -1,7 +1,6 @@
 from fastapi import HTTPException
-from sqlalchemy.orm import Session, aliased
-from sqlalchemy import or_, and_
-from typing import Optional
+from sqlalchemy.orm import Session, aliased, selectinload
+from sqlalchemy import or_, and_, func
 import logging
 
 from hang.schemas.conversations import ConversationPreview
@@ -9,7 +8,6 @@ from hang.models.db_models import User, Conversation, Message, UserBlock, Swipe
 
 from hang.core.storage import StorageService
 from hang.core.database import get_db_session
-from hang.helpers.users import is_blocked
 
 
 logger = logging.getLogger("Hang")
@@ -17,7 +15,7 @@ logger = logging.getLogger("Hang")
 
 def fetch_conversations_list(
     db: Session, user_id: int, storage: StorageService
-) -> Optional[list[ConversationPreview]]:
+) -> list[ConversationPreview]:
     BlockA = aliased(UserBlock)
     BlockB = aliased(UserBlock)
     conversations = (
@@ -39,70 +37,71 @@ def fetch_conversations_list(
             & (BlockB.blocked_id == user_id),
         )
         .filter((Conversation.user1_id == user_id) | (Conversation.user2_id == user_id))
-        .filter(BlockA.id.is_(None))  # I did not block them
-        .filter(BlockB.id.is_(None))  # they did not block me
+        .filter(BlockA.id.is_(None))
+        .filter(BlockB.id.is_(None))
         .order_by(Conversation.updated_at.desc())
         .all()
     )
 
-    last_message_ids = [c.last_message_id for c in conversations if c.last_message_id]
+    if not conversations:
+        return []
 
-    last_messages = (
-        db.query(Message).filter(Message.message_id.in_(last_message_ids)).all()
+    conv_ids = [c.conversation_id for c in conversations]
+    other_ids = {
+        c.user2_id if c.user1_id == user_id else c.user1_id for c in conversations
+    }
+
+    users = {
+        u.user_id: u
+        for u in db.query(User)
+        .options(selectinload(User.images))
+        .filter(User.user_id.in_(other_ids))
+        .all()
+    }
+
+    last_ids = [c.last_message_id for c in conversations if c.last_message_id]
+    last_message_map = (
+        {
+            m.message_id: m
+            for m in db.query(Message).filter(Message.message_id.in_(last_ids)).all()
+        }
+        if last_ids
+        else {}
     )
 
-    last_message_map = {m.message_id: m for m in last_messages}
-
-    unread_rows = (
-        db.query(
-            Message.conversation_id,
-        )
+    unread_map = {
+        cid: n
+        for cid, n in db.query(Message.conversation_id, func.count(Message.message_id))
         .filter(
-            Message.conversation_id.in_([c.conversation_id for c in conversations]),
+            Message.conversation_id.in_(conv_ids),
             Message.sender_id != user_id,
             Message.is_read.is_(False),
         )
+        .group_by(Message.conversation_id)
         .all()
-    )
-
-    unread_map: dict[int, int] = {}
-    for row in unread_rows:
-        conv_id = row[0]
-        unread_map[conv_id] = unread_map.get(conv_id, 0) + 1
+    }
 
     result = []
-
     for c in conversations:
-        other_user_id = c.user2_id if c.user1_id == user_id else c.user1_id
-
-        other_user = db.query(User).filter(User.user_id == other_user_id).first()
-
-        if other_user is None:
+        other_id = c.user2_id if c.user1_id == user_id else c.user1_id
+        other = users.get(other_id)
+        if other is None:
             continue
-
-        other_user_img_url = None
-        if other_user.images:
-            other_user_img_url = storage.build_image_url(other_user.images[0].image_key)
-
-        last_msg_obj = None
-        if c.last_message_id is not None:
-            last_msg_obj = last_message_map.get(c.last_message_id)
-
-        unread_count = unread_map.get(c.conversation_id, 0)
-
+        last = last_message_map.get(c.last_message_id) if c.last_message_id else None
         result.append(
             ConversationPreview(
                 conversation_id=c.conversation_id,
-                other_user_id=other_user_id,
-                other_user_name=other_user.first_name,
-                other_user_img_url=other_user_img_url,
-                last_message=last_msg_obj.content if last_msg_obj else None,
-                last_message_at=last_msg_obj.created_at if last_msg_obj else None,
-                unread_count=unread_count,
+                other_user_id=other_id,
+                other_user_name=other.first_name,
+                other_user_img_url=storage.build_image_url(other.images[0].image_key)
+                if other.images
+                else None,
+                last_message=last.content if last else None,
+                last_message_at=last.created_at if last else None,
+                unread_count=unread_map.get(c.conversation_id, 0),
                 updated_at=c.updated_at,
             )
         )
-
     return result
 
 
@@ -177,15 +176,24 @@ def get_all_user_conversations(user_id: int) -> list[int]:
             )
             .all()
         )
-        filtered = []
+        filtered: list[int] = []
 
-        for c in conversations:
-            other_user_id = c.user2_id if c.user1_id == user_id else c.user1_id
+        blocks = (
+            db.query(UserBlock)
+            .filter(
+                or_(UserBlock.blocker_id == user_id, UserBlock.blocked_id == user_id)
+            )
+            .all()
+        )
+        blocked_ids = {
+            b.blocked_id if b.blocker_id == user_id else b.blocker_id for b in blocks
+        }
 
-            if is_blocked(db, user_id, other_user_id):
-                continue
-
-            filtered.append(c.conversation_id)
+        return [
+            c.conversation_id
+            for c in conversations
+            if (c.user2_id if c.user1_id == user_id else c.user1_id) not in blocked_ids
+        ]
 
     return filtered
 

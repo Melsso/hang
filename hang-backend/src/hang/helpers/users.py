@@ -39,7 +39,7 @@ def get_current_user(request: Request, db: Annotated[Session, Depends(get_db)]) 
         user = db.query(User).filter(User.user_id == int(user_id)).first()
 
         if not user:
-            raise HTTPException(status_code=404, detail="User not found")
+            raise HTTPException(status_code=401, detail="User not found")
 
         request.state.user_id = user.user_id
         return user
@@ -89,7 +89,6 @@ def register_user(db: Session, user_data: UserCreate) -> tuple[Optional[User], s
                 "status": "success",
                 "context": {
                     "location": "register_user",
-                    "user_email": new_user.email,
                     "user_id": new_user.user_id,
                 },
             },
@@ -176,21 +175,36 @@ def is_profile_incomplete(user: User) -> bool:
     return not user.bio or not user.birthdate or not user.interests
 
 
-def update_profile_info(
-    db: Session, update_data: dict, user: User, storage: StorageService
-) -> tuple[bool, str]:
+def update_profile_info(db, update_data, user, storage) -> tuple[bool, str]:
     apply_profile_field_updates(user, update_data)
 
+    error = None
     if user.birthdate is None:
-        return False, "Birthdate is required."
-    if not is_18_or_older(user.birthdate):
-        return False, "You must be over 18 years old."
+        error = "Birthdate is required."
+    elif not is_18_or_older(user.birthdate):
+        error = "You must be over 18 years old."
+    if error:
+        db.rollback()
+        return False, error
 
     keys_to_delete = apply_image_updates(user, update_data, db)
+    try:
+        db.commit()
+    except SQLAlchemyError as exc:
+        db.rollback()
+        logger.error(
+            "hang_event",
+            extra={
+                "event": "user_update",
+                "status": "failed",
+                "error_type": type(exc).__name__,
+                "error_message": str(exc),
+                "context": {"location": "update_profile_info"},
+            },
+        )
+        return False, "Could not save profile."
 
-    db.commit()
     db.refresh(user)
-
     storage.delete_many(keys=keys_to_delete)
     return True, "success"
 

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import ActionBar from "../components/global/ActionBar";
-import SettingsModal from "../components/settings/SettingsModal";
+import SettingsModal from "../components/settings/ModalRow";
 import BlockedUsersModal from "../components/settings/BlockedUsersModal";
 import ReportsModal from "../components/settings/ReportsModal";
 import ChangePasswordModal from "../components/settings/ChangePasswordModal";

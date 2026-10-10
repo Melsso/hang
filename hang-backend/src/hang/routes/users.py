@@ -13,7 +13,7 @@ from hang.models.db_models import User
 from hang.core.database import get_db
 from hang.core.storage import StorageService, get_storage
 from hang.core.middleware import limiter
-
+from hang.core.limits import FREQUENT, WRITE
 from hang.helpers.conversations import verify_conversation
 from hang.helpers.users import (
     create_user_resp_data,
@@ -33,7 +33,7 @@ logger = logging.getLogger("Hang")
 
 
 @user_router.get("/profile")
-@limiter.limit("25/minute")
+@limiter.limit(FREQUENT)
 def profile_get(
     request: Request,
     user: Annotated[User, Depends(get_current_user)],
@@ -44,7 +44,7 @@ def profile_get(
 
 
 @user_router.post("/profile")
-@limiter.limit("5/minute")
+@limiter.limit(WRITE)
 def profile_post(
     request: Request,
     db: Annotated[Session, Depends(get_db)],
@@ -58,29 +58,17 @@ def profile_post(
     ):
         raise HTTPException(status_code=400, detail="Email already in use.")
 
-    try:
-        status, msg = update_profile_info(
-            db=db, update_data=update_data, user=user, storage=storage
-        )
-        if not status:
-            raise HTTPException(status_code=400, detail=msg)
-    except Exception as exc:
-        logger.error(
-            "hang_event",
-            extra={
-                "event": "user_update",
-                "status": "failed",
-                "error_type": type(exc).__name__,
-                "error_message": str(exc),
-                "context": {"location": "profile_post"},
-            },
-        )
+    status, msg = update_profile_info(
+        db=db, update_data=update_data, user=user, storage=storage
+    )
+    if not status:
+        raise HTTPException(status_code=400, detail=msg)
 
     return create_user_resp_data(user=user, storage=storage)
 
 
 @user_router.get("/profile/{user_id}")
-@limiter.limit("5/minute")
+@limiter.limit(FREQUENT)
 def visit_profile_get(
     request: Request,
     db: Annotated[Session, Depends(get_db)],
@@ -111,7 +99,7 @@ def visit_profile_get(
 
 
 @user_router.post("/profile/report-create")
-@limiter.limit("5/minute")
+@limiter.limit(WRITE)
 def report_post(
     request: Request,
     db: Annotated[Session, Depends(get_db)],
@@ -130,7 +118,7 @@ def report_post(
 
 
 @user_router.post("/profile/block")
-@limiter.limit("5/minute")
+@limiter.limit(WRITE)
 def block_post(
     request: Request,
     db: Annotated[Session, Depends(get_db)],
@@ -147,7 +135,7 @@ def block_post(
 
 
 @user_router.post("/profile/upload-image")
-@limiter.limit("5/minute")
+@limiter.limit(WRITE)
 async def profile_image_upload_post(
     request: Request,
     db: Annotated[Session, Depends(get_db)],

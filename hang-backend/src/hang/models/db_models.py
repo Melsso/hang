@@ -7,6 +7,8 @@ from sqlalchemy import (
     ForeignKey,
     UniqueConstraint,
     Text,
+    Index,
+    func,
 )
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Mapped, mapped_column, DeclarativeBase, relationship
@@ -183,11 +185,11 @@ class Conversation(Base):
     conversation_id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
 
     user1_id: Mapped[int] = mapped_column(
-        ForeignKey("users.user_id", ondelete="CASCADE")
+        ForeignKey("users.user_id", ondelete="CASCADE"), index=True
     )
 
     user2_id: Mapped[int] = mapped_column(
-        ForeignKey("users.user_id", ondelete="CASCADE")
+        ForeignKey("users.user_id", ondelete="CASCADE"), index=True
     )
 
     last_message_id: Mapped[int | None] = mapped_column(
@@ -210,6 +212,14 @@ class Conversation(Base):
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
+
+
+Index(
+    "uq_conversation_pair",
+    func.least(Conversation.user1_id, Conversation.user2_id),
+    func.greatest(Conversation.user1_id, Conversation.user2_id),
+    unique=True,
+)
 
 
 class Swipe(Base):

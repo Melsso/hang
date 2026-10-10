@@ -1,5 +1,6 @@
 import pytest
 import io
+from datetime import date, timedelta
 from PIL import Image
 
 from hang.models.db_models import User, Conversation, UserReport, UserBlock, UserImage
@@ -603,3 +604,52 @@ def test_upload_image_exceeds_max_count(client, db):
 
     updated_user = db.query(User).filter(User.email == "john@test.com").first()
     assert len(updated_user.images) == conf.MAX_IMAGES
+
+
+@pytest.mark.parametrize(
+    "db", [{User: [make_user_row("john@test.com", "John")]}], indirect=True
+)
+@pytest.mark.parametrize("current_user_email", ["john@test.com"], indirect=True)
+def test_profile_update_under_18_is_rejected_and_not_persisted(client, db):
+    original = db.query(User).filter(User.email == "john@test.com").first().birthdate
+    too_young = date.today() - timedelta(days=365 * 10)
+
+    response = client.post(
+        "/api/users/profile", json={"birthdate": too_young.isoformat()}
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "You must be over 18 years old."
+
+    db.expire_all()
+    assert (
+        db.query(User).filter(User.email == "john@test.com").first().birthdate
+        == original
+    )
+
+
+@pytest.mark.parametrize(
+    "db",
+    [{User: [make_user_row("g@test.com", "Google", birthdate=None)]}],
+    indirect=True,
+)
+@pytest.mark.parametrize("current_user_email", ["g@test.com"], indirect=True)
+def test_user_without_birthdate_can_load_and_set_it(client, db):
+    response = client.get("/api/users/profile")
+    assert response.status_code == 200
+    assert response.json()["birthdate"] is None
+
+    response = client.post("/api/users/profile", json={"birthdate": "1995-06-15"})
+    assert response.status_code == 200
+    assert response.json()["birthdate"] == "1995-06-15"
+
+
+@pytest.mark.parametrize(
+    "db", [{User: [make_user_row("john@test.com", "John")]}], indirect=True
+)
+@pytest.mark.parametrize("current_user_email", ["john@test.com"], indirect=True)
+@pytest.mark.parametrize(
+    "patch", [{"bio": "x" * 501}, {"country": "XX"}, {"first_name": ""}]
+)
+def test_profile_update_validation(client, db, patch):
+    assert client.post("/api/users/profile", json=patch).status_code == 422

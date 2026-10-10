@@ -16,7 +16,6 @@ from hang.models.db_models import User
 from hang.core.database import get_db
 from hang.core.storage import StorageService, get_storage
 from hang.core.middleware import limiter
-
 from hang.helpers.users import get_current_user
 from hang.helpers.settings import (
     get_blocked_users,
@@ -26,6 +25,7 @@ from hang.helpers.settings import (
     delete_user,
     change_password,
 )
+from hang.core.limits import FREQUENT, WRITE, AUTH, DELETE_ACCOUNT
 
 
 settings_router = APIRouter(prefix="/settings", tags=["settings"])
@@ -33,7 +33,7 @@ logger = logging.getLogger("Hang")
 
 
 @settings_router.get("/reports", response_model=list[ReportResponse])
-@limiter.limit("5/minute")
+@limiter.limit(FREQUENT)
 def get_reports(
     request: Request,
     db: Annotated[Session, Depends(get_db)],
@@ -45,7 +45,7 @@ def get_reports(
 
 
 @settings_router.post("/report-delete")
-@limiter.limit("5/minute")
+@limiter.limit(WRITE)
 def delete_report_post(
     request: Request,
     db: Annotated[Session, Depends(get_db)],
@@ -67,7 +67,7 @@ def delete_report_post(
 
 
 @settings_router.get("/blocks", response_model=list[BlockedUserResponse])
-@limiter.limit("5/minute")
+@limiter.limit(FREQUENT)
 def blocked_lst_get(
     request: Request,
     db: Annotated[Session, Depends(get_db)],
@@ -79,7 +79,7 @@ def blocked_lst_get(
 
 
 @settings_router.post("/unblock")
-@limiter.limit("5/minute")
+@limiter.limit(WRITE)
 def unblock_post(
     request: Request,
     db: Annotated[Session, Depends(get_db)],
@@ -101,7 +101,7 @@ def unblock_post(
 
 
 @settings_router.post("/change-password")
-@limiter.limit("5/minute")
+@limiter.limit(AUTH)
 def change_user_password(
     request: Request,
     db: Annotated[Session, Depends(get_db)],
@@ -122,7 +122,7 @@ def change_user_password(
 
 
 @settings_router.post("/delete-account")
-@limiter.limit("1/minute")
+@limiter.limit(DELETE_ACCOUNT)
 def delete_user_post(
     request: Request,
     db: Annotated[Session, Depends(get_db)],
@@ -135,4 +135,6 @@ def delete_user_post(
             status_code=400,
             content={"success": False},
         )
-    return {"success": ok}
+    response = JSONResponse(content={"success": True})
+    response.delete_cookie(key="access_token", httponly=True, samesite="lax")
+    return response

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { DndContext, closestCenter } from "@dnd-kit/core";
 import type { DragEndEvent } from "@dnd-kit/core";
 import { arrayMove, SortableContext, verticalListSortingStrategy, useSortable } from "@dnd-kit/sortable";
@@ -98,10 +98,6 @@ export default function ProfileImagePanel({ images, imageOrder, setImageOrder, d
     const featured = hasImages ? activeImages[selectedIndex] : null;
     const prev = () => setSelectedIndex((p) => p === 0 ? activeImages.length - 1 : p - 1);
     const next = () => setSelectedIndex((p) => p === activeImages.length - 1 ? 0 : p + 1);
-
-    useEffect(() => {
-        setSelectedIndex(0);
-    }, [images]);
 
     const toggleDelete = (imageId: number) => {setDeletedImages((prev) => prev.includes(imageId) ? prev.filter((id) => id !== imageId) : [...prev, imageId]);};
 

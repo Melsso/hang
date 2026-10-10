@@ -8,11 +8,11 @@ docker compose down
 
 echo "Stopping Redis..."
 
-docker stop local_redis || true
+docker stop hang-redis-local || true
 
 echo "Stopping Postgres..."
 
-docker stop local_db || true
+docker stop hang-db-local || true
 
 echo ""
 echo "Cleanup complete."

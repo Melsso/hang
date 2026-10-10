@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { AnimatePresence } from "framer-motion";
 import { useToast } from "../components/global/ToastProvider";
 
 import ActionBar from "../components/global/ActionBar";
@@ -23,7 +22,7 @@ export default function Swipes() {
             setProfiles(data);
         }
         load();
-    }, []);
+    }, [showToast]);
 
     if (profiles === null) {
         return <div>Loading...</div>;
@@ -37,12 +36,13 @@ export default function Swipes() {
         const profile = profiles[index];
         try {
             const result = await swipe_action(profile.user_id, swipeType);
-            if (result == null) {
-                showToast("Something went wrong, try again later.", "error");
-                return;
+            if (result == null) { showToast("Something went wrong, try again later.", "error"); return; }
+            if (index + 1 >= profiles.length) {
+                const more = await get_swipe_profiles();
+                if (more) { setProfiles(more); setIndex(0); return; }
             }
             setIndex(prev => prev + 1);
-        } catch (err) {
+        } catch {
             showToast("Something went wrong, try again later.", "error");
         }
     };
@@ -51,13 +51,11 @@ export default function Swipes() {
         <div className="w-3/4 h-[70vh] flex flex-col items-center justify-center gap-10">
             <ActionBar />
 
-            <AnimatePresence mode="wait">
-                <ProfileCard
-                    key={index}
-                    profile={isEmpty ? undefined : currentProfile}
-                    onSwipe={handleSwipe}
-                />
-            </AnimatePresence>
+            <ProfileCard
+                key={index}
+                profile={isEmpty ? undefined : currentProfile}
+                onSwipe={handleSwipe}
+            />
 
             <SwipeAction onSwipe={handleSwipe} />
         </div>

@@ -3,10 +3,15 @@ import pytest
 from hang.models.db_models import User
 from hang.helpers.auth import pwd_context
 from tests.utils import make_user_row
+from hang.core.limits import AUTH, FREQUENT
+
+
+def _count(limit: str) -> int:
+    return int(limit.split("/")[0])
 
 
 def test_login_rate_limited(client, db):
-    for _ in range(5):
+    for _ in range(_count(AUTH)):
         response = client.post(
             "/api/auth/login",
             json={"email": "nobody@test.com", "password": "whatever"},
@@ -34,7 +39,7 @@ def test_register_rate_limited(client, db):
         "password": "a-strong-password-123",
     }
 
-    for _ in range(5):
+    for _ in range(_count(AUTH)):
         response = client.post("/api/auth/register", json=payload)
         assert response.status_code in (201, 409)
 
@@ -49,7 +54,7 @@ def test_register_rate_limited(client, db):
 )
 @pytest.mark.parametrize("current_user_email", ["john@test.com"], indirect=True)
 def test_profile_get_rate_limited(client, db):
-    for _ in range(25):
+    for _ in range(_count(FREQUENT)):
         response = client.get("/api/users/profile")
         assert response.status_code == 200
 
@@ -74,7 +79,7 @@ def test_profile_get_rate_limited(client, db):
 )
 @pytest.mark.parametrize("current_user_email", ["john@test.com"], indirect=True)
 def test_change_password_rate_limited(client, db):
-    for _ in range(5):
+    for _ in range(_count(AUTH)):
         response = client.post(
             "/api/settings/change-password",
             json={"old_password": "wrong", "new_password": "whatever"},
@@ -95,7 +100,7 @@ def test_change_password_rate_limited(client, db):
 )
 @pytest.mark.parametrize("current_user_email", ["john@test.com"], indirect=True)
 def test_conversations_list_rate_limited(client, db):
-    for _ in range(5):
+    for _ in range(_count(FREQUENT)):
         response = client.get("/api/conversations")
         assert response.status_code == 200
 

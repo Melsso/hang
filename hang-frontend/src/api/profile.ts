@@ -7,7 +7,7 @@ export async function get_user_profile_info(userId?: number) {
     return res.json();
 }
 
-export async function update_profile_info(formData: any) {
+export async function update_profile_info(formData: unknown) {
     const res = await fetch("/api/users/profile", {
         method: "POST",
         credentials: "include",
@@ -20,7 +20,7 @@ export async function update_profile_info(formData: any) {
     return res.json();
 }
 
-export async function upload_pictures(formData: any) {
+export async function upload_pictures(formData: FormData) {
     const res = await fetch("/api/users/profile/upload-image", {
         method: "POST",
         credentials: "include",
@@ -30,7 +30,7 @@ export async function upload_pictures(formData: any) {
     return res.json();
 }
 
-export async function report_user(userId: number, reason: string, message: any) {
+export async function report_user(userId: number, reason: string, message?: string | null) {
     const res = await fetch("/api/users/profile/report-create", {
         method: "POST",
         credentials: "include",

@@ -1,5 +1,7 @@
-from sqlalchemy.orm import Session, aliased
-from sqlalchemy import select
+from sqlalchemy.orm import Session, aliased, selectinload
+from sqlalchemy import select, func, and_, or_
+from enum import Enum
+from sqlalchemy.exc import IntegrityError
 
 from typing import Optional, Any
 
@@ -7,12 +9,23 @@ import logging
 
 from hang.schemas.swipes import SwipeType, SwipeCreate
 from hang.schemas.users import UserSwipeProfile
+
 from hang.models.db_models import User, Swipe, Conversation, UserBlock
 
-from hang.core.storage import StorageService
-from hang.helpers.users import is_profile_incomplete
+from hang.helpers.users import is_blocked
 
 logger = logging.getLogger("Hang")
+
+
+class SwipeOutcome(str, Enum):
+    ok = "ok"
+    duplicate = "duplicate"
+    invalid = "invalid"
+    error = "error"
+
+
+CANDIDATE_POOL = 200
+PAGE_SIZE = 20
 
 
 def fetch_candidate_profiles(db: Session, user_id: int) -> list[User]:
@@ -23,6 +36,7 @@ def fetch_candidate_profiles(db: Session, user_id: int) -> list[User]:
 
     candidates = (
         db.query(User)
+        .options(selectinload(User.images))
         .outerjoin(
             Block1, (Block1.blocker_id == user_id) & (Block1.blocked_id == User.user_id)
         )
@@ -32,8 +46,15 @@ def fetch_candidate_profiles(db: Session, user_id: int) -> list[User]:
         .filter(User.user_id != user_id)
         .filter(User.is_active.is_(True))
         .filter(~User.user_id.in_(swiped_subq))
-        .filter(Block1.id.is_(None))  # not blocked by me
-        .filter(Block2.id.is_(None))  # did not block me
+        .filter(Block1.id.is_(None))
+        .filter(Block2.id.is_(None))
+        .filter(
+            User.bio != "",
+            User.birthdate.is_not(None),
+            func.cardinality(User.interests) > 0,
+        )
+        .order_by(func.random())
+        .limit(CANDIDATE_POOL)
         .all()
     )
 
@@ -56,30 +77,18 @@ def calc_user_score(candidate: User, user: User) -> int:
     return score
 
 
-def generate_suggested_profiles(
-    db: Session, user: User, storage: StorageService
-) -> Optional[list[dict[str, Any]]]:
-    profiles: list[dict[str, Any]] = []
-
+def generate_suggested_profiles(db, user, storage) -> list[dict[str, Any]]:
     candidates = fetch_candidate_profiles(db=db, user_id=user.user_id)
-    if not candidates:
-        return []
-
-    for candidate in candidates:
-        if is_profile_incomplete(user=candidate):
-            continue
-
+    top = sorted(candidates, key=lambda c: calc_user_score(c, user), reverse=True)[
+        :PAGE_SIZE
+    ]
+    profiles = []
+    for candidate in top:
         profile = UserSwipeProfile.model_validate(candidate).model_dump(mode="json")
-
         for img in profile["images"]:
             img["image_url"] = storage.build_image_url(img["image_key"])
-
         profile["score"] = calc_user_score(candidate=candidate, user=user)
-
         profiles.append(profile)
-
-    profiles.sort(key=lambda x: x["score"], reverse=True)
-
     return profiles
 
 
@@ -96,36 +105,65 @@ def is_match(db: Session, user_id: int, target_user_id: int) -> bool:
 
 def process_swipe(
     db: Session, swipeData: SwipeCreate, user: User
-) -> Optional[Conversation]:
+) -> tuple[SwipeOutcome, Optional[Conversation]]:
+    target_id = swipeData.to_user_id
+    target_ok = (
+        target_id != user.user_id
+        and db.query(User.user_id)
+        .filter(User.user_id == target_id, User.is_active.is_(True))
+        .first()
+        is not None
+        and not is_blocked(db, user.user_id, target_id)
+    )
+    if not target_ok:
+        return SwipeOutcome.invalid, None
+
     try:
-        swipe = Swipe(
-            from_user_id=user.user_id,
-            to_user_id=swipeData.to_user_id,
-            swipe_type=swipeData.swipe_type,
+        db.add(
+            Swipe(
+                from_user_id=user.user_id,
+                to_user_id=target_id,
+                swipe_type=swipeData.swipe_type,
+            )
         )
-        db.add(swipe)
+        db.flush()
+    except IntegrityError:
+        db.rollback()
+        return SwipeOutcome.duplicate, None
 
+    try:
         conversation = None
-
-        if swipeData.swipe_type in [SwipeType.like, SwipeType.super_like]:
-            if is_match(
-                db=db,
-                user_id=user.user_id,
-                target_user_id=swipeData.to_user_id,
-            ):
-                conversation = Conversation(
-                    user1_id=user.user_id,
-                    user2_id=swipeData.to_user_id,
+        if swipeData.swipe_type in (SwipeType.like, SwipeType.super_like) and is_match(
+            db=db, user_id=user.user_id, target_user_id=target_id
+        ):
+            try:
+                with db.begin_nested():
+                    conversation = Conversation(
+                        user1_id=user.user_id, user2_id=target_id
+                    )
+                    db.add(conversation)
+            except IntegrityError:
+                conversation = (
+                    db.query(Conversation)
+                    .filter(
+                        or_(
+                            and_(
+                                Conversation.user1_id == user.user_id,
+                                Conversation.user2_id == target_id,
+                            ),
+                            and_(
+                                Conversation.user1_id == target_id,
+                                Conversation.user2_id == user.user_id,
+                            ),
+                        )
+                    )
+                    .first()
                 )
-                db.add(conversation)
-                db.flush()
 
         db.commit()
-
         if conversation:
             db.refresh(conversation)
-
-        return conversation
+        return SwipeOutcome.ok, conversation
 
     except Exception as exc:
         db.rollback()
@@ -136,10 +174,7 @@ def process_swipe(
                 "status": "failed",
                 "error_type": type(exc).__name__,
                 "error_message": str(exc),
-                "context": {
-                    "location": "swipe_user",
-                    "email": user.email,
-                },
+                "context": {"location": "process_swipe", "user_id": user.user_id},
             },
         )
-        return None
+        return SwipeOutcome.error, None

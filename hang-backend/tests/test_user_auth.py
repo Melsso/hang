@@ -1,9 +1,14 @@
 import pytest
+from types import SimpleNamespace
+from typing import cast
 from unittest.mock import AsyncMock, patch
+
+from fastapi import HTTPException, Request
 from fastapi.responses import RedirectResponse
 
 from hang.models.db_models import User
-from hang.helpers.auth import hash_password
+from hang.helpers.auth import hash_password, create_access_token
+from hang.helpers.users import get_current_user
 from tests.utils import make_user_row
 
 
@@ -96,6 +101,34 @@ def test_register_email_case_insensitive(client, db):
     assert response.status_code == 201
     created_user = db.query(User).filter(User.email == "mixedcase@test.com").first()
     assert created_user is not None
+
+
+VALID_REGISTER = {
+    "first_name": "John",
+    "last_name": "Doe",
+    "email": "v@test.com",
+    "birthdate": "1995-06-15",
+    "bio": "hello",
+    "gender": "male",
+    "country": "DE",
+    "interested_in": "female",
+    "interests": ["sports"],
+    "password": "a-strong-password-123",
+}
+
+
+@pytest.mark.parametrize(
+    "patch_data",
+    [
+        {"bio": "x" * 501},
+        {"country": "XX"},
+        {"password": "short"},
+        {"first_name": "  "},
+    ],
+)
+def test_register_validation(client, db, patch_data):
+    response = client.post("/api/auth/register", json={**VALID_REGISTER, **patch_data})
+    assert response.status_code == 422
 
 
 @pytest.mark.parametrize(
@@ -295,3 +328,40 @@ def test_logout(client, db):
     assert response.status_code == 200
     assert response.json()["success"] is True
     assert "access_token" not in client.cookies
+
+
+def test_get_current_user_deleted_user_is_401(db):
+    token = create_access_token({"sub": "999999"})
+    request = cast(
+        Request,
+        SimpleNamespace(cookies={"access_token": token}, state=SimpleNamespace()),
+    )
+
+    with pytest.raises(HTTPException) as exc:
+        get_current_user(request, db)
+
+    assert exc.value.status_code == 401
+
+
+def test_session_without_cookie_is_unauthenticated(client, db):
+    response = client.get("/api/auth/session")
+    assert response.status_code == 200
+    assert response.json() == {
+        "authenticated": False,
+        "user_id": None,
+        "onboarding_required": False,
+    }
+
+
+@pytest.mark.parametrize(
+    "db", [{User: [make_user_row("john@test.com", "John")]}], indirect=True
+)
+def test_session_with_valid_cookie_is_authenticated(client, db):
+    john = db.info["seeded"][User][0]
+    client.cookies.set("access_token", create_access_token({"sub": str(john.user_id)}))
+
+    body = client.get("/api/auth/session").json()
+
+    assert body["authenticated"] is True
+    assert body["user_id"] == john.user_id
+    assert body["onboarding_required"] is False

@@ -8,6 +8,7 @@ from hang.models.db_models import (
     UserBlock,
     Swipe,
 )
+from hang.helpers.conversations import get_all_user_conversations
 from tests.utils import make_user_row
 
 
@@ -162,6 +163,71 @@ def test_conversations_list_excludes_blocked(client, db):
 
     assert response.status_code == 200
     assert response.json() == []
+
+
+@pytest.mark.parametrize(
+    "db",
+    [
+        {
+            User: [
+                make_user_row("john@test.com", "John"),
+                make_user_row("jane@test.com", "Jane"),
+            ],
+            Conversation: [
+                {
+                    "user1_id": lambda c: c[User][0].user_id,
+                    "user2_id": lambda c: c[User][1].user_id,
+                },
+            ],
+            UserBlock: [
+                {
+                    "blocker_id": lambda c: c[User][1].user_id,
+                    "blocked_id": lambda c: c[User][0].user_id,
+                },
+            ],
+        }
+    ],
+    indirect=True,
+)
+@pytest.mark.parametrize("current_user_email", ["john@test.com"], indirect=True)
+def test_conversations_list_excludes_blocked_by_other_side(client, db):
+    assert client.get("/api/conversations").json() == []
+
+
+@pytest.mark.parametrize(
+    "db",
+    [
+        {
+            User: [
+                make_user_row("john@test.com", "John"),
+                make_user_row("jane@test.com", "Jane"),
+                make_user_row("amy@test.com", "Amy"),
+            ],
+            Conversation: [
+                {
+                    "user1_id": lambda c: c[User][0].user_id,
+                    "user2_id": lambda c: c[User][1].user_id,
+                },
+                {
+                    "user1_id": lambda c: c[User][0].user_id,
+                    "user2_id": lambda c: c[User][2].user_id,
+                },
+            ],
+            UserBlock: [
+                {
+                    "blocker_id": lambda c: c[User][1].user_id,
+                    "blocked_id": lambda c: c[User][0].user_id,
+                },
+            ],
+        }
+    ],
+    indirect=True,
+)
+def test_get_all_user_conversations_excludes_blocked(db):
+    john = db.info["seeded"][User][0]
+    with_amy = db.info["seeded"][Conversation][1]
+
+    assert get_all_user_conversations(john.user_id) == [with_amy.conversation_id]
 
 
 @pytest.mark.parametrize(

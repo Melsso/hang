@@ -3,6 +3,7 @@ export async function get_swipe_profiles() {
         credentials: "include",
         cache: "no-store",
     });
+    if (res.status === 403) return [];
     if (!res.ok) return null;
     return res.json();
 }
@@ -14,10 +15,7 @@ export async function swipe_action(to_user_id: number, swipe_type: string) {
         headers: {
             "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-            to_user_id,
-            swipe_type,
-        }),
+        body: JSON.stringify({ to_user_id, swipe_type: swipe_type.replace("-", "_") }),
     });
     if (!res.ok) return null;
     return res.json();

@@ -1,5 +1,5 @@
 import { motion, useMotionValue, useTransform, animate } from "framer-motion";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import type { ProfileImage } from "../profile/ProfileImagePanel";
 import defaultUserImage from "../../assets/default_user.png";
 
@@ -26,10 +26,6 @@ export default function ProfileCard({ profile, onSwipe }: ProfileCardProps) {
     const rotate = useTransform(x, [-200, 200], [-15, 15]);
     const opacity = useTransform(x, [-200, 0, 200], [0.8, 1, 0.8]);
     const [selectedIndex, setSelectedIndex] = useState(0);
-
-    useEffect(() => {
-        setSelectedIndex(0);
-    }, [profile?.user_id]);
 
     const imageCount = profile?.images?.length || 0;
     const hasImages = imageCount > 0;

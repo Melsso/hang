@@ -3,7 +3,7 @@ from prometheus_fastapi_instrumentator import Instrumentator
 
 from hang.core.logging import setup_logging
 from hang.core.middleware import register_middleware
-from hang.core.startup import register_startup_events
+from hang.core.startup import lifespan
 
 from hang.routes.auth import auth_router
 from hang.routes.users import user_router
@@ -18,9 +18,7 @@ def create_app() -> FastAPI:
     setup_logging()
 
     app = FastAPI(
-        title="Hang",
-        description="Dating App",
-        version="1.0.0",
+        title="Hang", description="Dating App", version="0.1.0", lifespan=lifespan
     )
 
     Instrumentator().instrument(app).expose(app)
@@ -33,7 +31,5 @@ def create_app() -> FastAPI:
     app.include_router(conversation_router, prefix="/api")
     app.include_router(settings_router, prefix="/api")
     app.include_router(ws_router, prefix="/api")
-
-    register_startup_events(app)
 
     return app

@@ -16,6 +16,8 @@ from hang.helpers.auth import (
     authenticate_user_local,
     authenticate_user_google,
 )
+from hang.core.limits import AUTH, WRITE, FREQUENT
+from hang.helpers.auth import set_auth_cookie
 from hang.helpers.users import register_user, get_current_user, is_profile_incomplete
 
 
@@ -24,40 +26,26 @@ logger = logging.getLogger("Hang")
 
 
 @auth_router.get("/session", response_model=UserStateResponse)
+@limiter.limit(FREQUENT)
 def session_status(
     request: Request,
     db: Annotated[Session, Depends(get_db)],
 ):
-    resp = UserStateResponse(
-        authenticated=False, user_id=None, onboarding_required=False
-    )
     try:
         user = get_current_user(request=request, db=db)
-        resp.authenticated = True
-        resp.user_id = user.user_id
-        resp.onboarding_required = is_profile_incomplete(user=user)
-        return resp
-    except Exception as exc:
-        logger.exception(
-            "hang_event",
-            extra={
-                "event": "http_request",
-                "status": "internal_error",
-                "status_code": 500,
-                "path": request.url.path,
-                "method": request.method,
-                "context": {
-                    "location": "general_exception_handler",
-                    "error_type": type(exc).__name__,
-                    "error_message": str(exc),
-                },
-            },
+    except HTTPException:
+        return UserStateResponse(
+            authenticated=False, user_id=None, onboarding_required=False
         )
-        return resp
+    return UserStateResponse(
+        authenticated=True,
+        user_id=user.user_id,
+        onboarding_required=is_profile_incomplete(user=user),
+    )
 
 
 @auth_router.get("/login/google")
-@limiter.limit("5/minute")
+@limiter.limit(AUTH)
 async def login_get_google(
     request: Request,
 ):
@@ -66,7 +54,7 @@ async def login_get_google(
 
 
 @auth_router.get("/login/google/callback")
-@limiter.limit("5/minute")
+@limiter.limit(AUTH)
 async def login_get_google_callback(
     request: Request,
     db: Annotated[Session, Depends(get_db)],
@@ -84,20 +72,13 @@ async def login_get_google_callback(
     token = create_access_token({"sub": str(user.user_id), "email": user.email})
     response = RedirectResponse(url="/swipes")
 
-    response.set_cookie(
-        key="access_token",
-        value=token,
-        httponly=True,
-        samesite="lax",
-        secure=False,
-        max_age=60 * 60,
-    )
+    set_auth_cookie(response, token)
 
     return response
 
 
 @auth_router.post("/login")
-@limiter.limit("5/minute")
+@limiter.limit(AUTH)
 def login_post(
     request: Request,
     db: Annotated[Session, Depends(get_db)],
@@ -116,20 +97,13 @@ def login_post(
         }
     )
 
-    response.set_cookie(
-        key="access_token",
-        value=token,
-        httponly=True,
-        samesite="lax",
-        secure=False,  # True in production HTTPS
-        max_age=60 * 60,
-    )
+    set_auth_cookie(response, token)
 
     return response
 
 
 @auth_router.post("/logout")
-@limiter.limit("5/minute")
+@limiter.limit(WRITE)
 def logout_post(request: Request):
     response = JSONResponse(content={"success": True})
 
@@ -143,7 +117,7 @@ def logout_post(request: Request):
 
 
 @auth_router.post("/register")
-@limiter.limit("5/minute")
+@limiter.limit(AUTH)
 def register_post(
     request: Request,
     db: Annotated[Session, Depends(get_db)],

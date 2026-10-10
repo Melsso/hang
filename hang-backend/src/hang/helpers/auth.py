@@ -2,7 +2,7 @@ from passlib.context import CryptContext
 from jose import jwt
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta, timezone
-
+from fastapi import Response
 from typing import Optional
 
 from hang.schemas.config import conf
@@ -82,3 +82,14 @@ def authenticate_user_google(db: Session, google_user_info: dict) -> Optional[Us
         # TODO log failure
         db.rollback()
         return None
+
+
+def set_auth_cookie(response: Response, token: str) -> None:
+    response.set_cookie(
+        key="access_token",
+        value=token,
+        httponly=True,
+        samesite="lax",
+        secure=conf.COOKIE_SECURE,
+        max_age=conf.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+    )

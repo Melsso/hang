@@ -9,7 +9,7 @@ services:
     depends_on:
       - api
     networks:
-      - hang_network
+      - hang-network
 
   api:
     build:
@@ -18,7 +18,7 @@ services:
     env_file:
       - ./hang-backend/.api_env
     networks:
-      - hang_network
+      - hang-network
     expose:
       - "8000"
     labels:
@@ -33,7 +33,7 @@ services:
     expose:
       - "9090"
     networks:
-      - hang_network
+      - hang-network
     restart: unless-stopped
 
   grafana:
@@ -42,16 +42,13 @@ services:
       dockerfile: Dockerfile
     container_name: hang-grafana
     ports:
-      - "3000"
+      - "3000:3000"
     networks:
-      - hang_network
+      - hang-network
     depends_on:
       - prometheus
     restart: unless-stopped
 
-volumes:
-  postgres_data:
-
 networks:
-  hang_network:
+  hang-network:
     external: true

@@ -1,15 +1,32 @@
 import { useState, useEffect } from "react";
 import { getBlockedUsers, unblockUser } from "../../api/settings";
 import { useToast } from "../global/ToastProvider";
-import ModalRow from "./SettingsModal";
+import ModalRow from "./ModalRow";
+
+interface BlockedUser {
+    user_id: number;
+    first_name: string;
+    last_name: string;
+    created_at: string;
+}
 
 export default function BlockedUsersModal() {
-    const [users, setUsers] = useState<any[]>([]);
+    const [users, setUsers] = useState<BlockedUser[]>([]);
     const { showToast } = useToast();
 
     useEffect(() => {
-        loadBlockedUsers();
-    }, []);
+        let cancelled = false;
+        (async () => {
+            const data = await getBlockedUsers();
+            if (cancelled) return;
+            if (!data) {
+                showToast("Something went wrong, try again later.", "error");
+                return;
+            }
+            setUsers(data);
+        })();
+        return () => { cancelled = true; };
+    }, [showToast]);
 
     function formatDate(date: string) {
         return new Date(date).toLocaleString(undefined, {
@@ -19,15 +36,6 @@ export default function BlockedUsersModal() {
             hour: "2-digit",
             minute: "2-digit",
         });
-    }
-
-    async function loadBlockedUsers() {
-        const data = await getBlockedUsers();
-        if (!data) {
-            showToast("Something went wrong, try again later.", "error");
-            return;
-        }
-        setUsers(data);
     }
 
     return (

@@ -21,6 +21,7 @@ export default function Conversations() {
     const { showToast } = useToast();
     const navigate = useNavigate();
 
+    const sendRef = useRef<(payload: Record<string, unknown>) => void>(() => {});   
     const { send } = useConversationsSocket((event) => {
         if (event.type === "message") {
             const { message } = event;
@@ -51,10 +52,7 @@ export default function Conversations() {
                 };
             });
             if (isActive && !isSender) {
-                send({
-                    type: "read",
-                    conversation_id,
-                });
+                sendRef.current({ type: "read", conversation_id });
             }
         }
 
@@ -75,7 +73,7 @@ export default function Conversations() {
                 return {
                     ...prev,
                     typing: is_typing,
-                } as any;
+                };
             });
         }
 
@@ -115,7 +113,7 @@ export default function Conversations() {
             setConversations(data);
         }
         load();
-    }, []);
+    }, [navigate, showToast]);
 
     const handleSelectConversation = async (conv: Conversation) => {
         activeConversationRef.current = conv.conversation_id;

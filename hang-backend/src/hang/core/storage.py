@@ -22,15 +22,6 @@ class StorageService:
         self.bucket = conf.R2_BUCKET_NAME
 
     def build_image_url(self, key: str) -> str:
-        logger.info(
-            "hang_event",
-            extra={
-                "event": "storage_presign",
-                "status": "success",
-                "context": {"key": key},
-            },
-        )
-
         return self.s3.generate_presigned_url(
             "get_object",
             Params={

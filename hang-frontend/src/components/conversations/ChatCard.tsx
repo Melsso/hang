@@ -12,6 +12,7 @@ type MessagePreview = {
 export type MessageListResponse = {
     conversation_id: number;
     current_user_id: number;
+    typing?: boolean;
     messages: MessagePreview[];
     next_cursor: number | null;
     has_more: boolean;
@@ -184,7 +185,7 @@ export default function ChatCard({
                 )}
             </div>
  
-            {(data as any)?.typing && (
+            {data?.typing && (
                 <div className="text-sm text-white/50 px-6 pb-2">
                     typing...
                 </div>

@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import RequireAuth from "../components/global/RequireAuth";
 
 import Landing from "../pages/Landing";
 import Login from "../pages/Login";
@@ -15,10 +16,12 @@ export default function AppRoutes() {
                 <Route path="/" element={<Landing />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/register" element={<Register />} />
-                <Route path="/swipes" element={<Swipes />} />
-                <Route path="/profile/:userId?" element={<Profile />} />
-                <Route path="/conversations" element={<Conversations />} />
-                <Route path="/settings" element={<Settings />} />
+                <Route element={<RequireAuth />}>
+                    <Route path="/swipes" element={<Swipes />} />
+                    <Route path="/profile/:userId?" element={<Profile />} />
+                    <Route path="/conversations" element={<Conversations />} />
+                    <Route path="/settings" element={<Settings />} />
+                </Route>
             </Routes>
         </BrowserRouter>
     );

@@ -2,12 +2,12 @@ name: Backend CI
 
 on:
   push:
-    branches: [dev-api]
+    branches: [main, dev]
     paths:
       - "hang-backend/**"
       - ".github/workflows/backend-ci.yml"
   pull_request:
-    branches: [dev-api]
+    branches: [main, dev]
     paths:
       - "hang-backend/**"
       - ".github/workflows/backend-ci.yml"
@@ -78,5 +78,5 @@ jobs:
       - name: Run unit tests
         run: poetry run pytest tests
 
-      - name: Run integration tests
+      - name: Run smoke tests
         run: poetry run pytest smoke_tests

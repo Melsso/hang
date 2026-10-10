@@ -1,8 +1,7 @@
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import field_validator
-from typing import List, Dict
+from typing import List
 from typing_extensions import Annotated
-import pycountry
 
 
 class Settings(BaseSettings):
@@ -14,8 +13,10 @@ class Settings(BaseSettings):
 
     REDIS_HOST: str
     REDIS_PORT: int = 6379
+    RATE_LIMIT_STORAGE_URI: str = ""
 
-    DEBUG: bool = False
+    COOKIE_SECURE: bool = False
+
     SECRET_KEY: str
     ALGORITHM: str
     ACCESS_TOKEN_EXPIRE_MINUTES: int
@@ -33,18 +34,12 @@ class Settings(BaseSettings):
     GOOGLE_CLIENT_SECRET: str
     GOOGLE_REDIRECT_URI: str
 
-    COUNTRIES: List[Dict[str, str]] = [
-        {"code": c.alpha_2, "name": c.name} for c in pycountry.countries
-    ]
-
     @field_validator("ALLOWED_IMAGE_TYPES", mode="after")
     @classmethod
     def split_allowed_image_types(cls, v: str) -> List[str]:
         return [x.strip() for x in v.split(",") if x.strip()]
 
-    class Config:
-        env_file = ".api_env"
-        env_file_encoding = "utf-8"
+    model_config = SettingsConfigDict(env_file=".api_env", env_file_encoding="utf-8")
 
 
 conf = Settings()

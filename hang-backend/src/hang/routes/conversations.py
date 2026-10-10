@@ -14,6 +14,7 @@ from hang.helpers.messages import (
     get_conversation_messages,
     mark_conversation_messages_read,
 )
+from hang.core.limits import WRITE, FREQUENT
 from hang.helpers.conversations import (
     fetch_conversations_list,
     get_user_conversation,
@@ -24,7 +25,7 @@ conversation_router = APIRouter(prefix="/conversations", tags=["conversations"])
 
 
 @conversation_router.get("", response_model=list[ConversationPreview])
-@limiter.limit("5/minute")
+@limiter.limit(FREQUENT)
 def conversations_get(
     request: Request,
     db: Annotated[Session, Depends(get_db)],
@@ -36,7 +37,7 @@ def conversations_get(
 
 
 @conversation_router.post("/delete/{conversation_id}")
-@limiter.limit("5/minute")
+@limiter.limit(WRITE)
 def conversation_delete(
     request: Request,
     conversation_id: int,
@@ -55,7 +56,7 @@ def conversation_delete(
 @conversation_router.get(
     "/{conversation_id}/messages", response_model=MessageListResponse
 )
-@limiter.limit("20/minute")
+@limiter.limit(FREQUENT)
 def messages_by_conv_id_get(
     request: Request,
     db: Annotated[Session, Depends(get_db)],

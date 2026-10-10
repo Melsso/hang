@@ -118,9 +118,7 @@ def test_unblock_user_not_blocked_fails(client, db):
             ],
             UserBlock: [
                 {
-                    "blocker_id": lambda created: (
-                        created[User][0].user_id
-                    ),  # john blocked jane
+                    "blocker_id": lambda created: created[User][0].user_id,
                     "blocked_id": lambda created: created[User][1].user_id,
                 },
             ],

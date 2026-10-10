@@ -34,7 +34,7 @@ export default function Register() {
             await register(values);
             showToast("Registered successfully.", "success");
             navigate("/login");
-        } catch (err) {
+        } catch {
             showToast("Something went wrong, try again.", "error");
         }
     };
