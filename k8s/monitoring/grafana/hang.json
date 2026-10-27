@@ -1,0 +1,52 @@
+{
+  "uid": "hang-overview",
+  "title": "Hang App Overview",
+  "schemaVersion": 38,
+  "version": 2,
+  "refresh": "5s",
+  "time": { "from": "now-15m", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "env",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "query": "label_values(http_requests_total, env)",
+        "includeAll": true,
+        "multi": true,
+        "refresh": 2,
+        "current": { "selected": true, "text": "All", "value": "$__all" }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1, "type": "timeseries", "title": "Request rate (req/s)",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+      "targets": [{ "refId": "A", "legendFormat": "{{env}}",
+        "expr": "sum by (env) (rate(http_requests_total{env=~\"$env\"}[1m]))" }]
+    },
+    {
+      "id": 2, "type": "timeseries", "title": "Latency p95 (s)",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+      "targets": [{ "refId": "A", "legendFormat": "{{env}}",
+        "expr": "histogram_quantile(0.95, sum by (le, env) (rate(http_request_duration_highr_seconds_bucket{env=~\"$env\"}[1m])))" }]
+    },
+    {
+      "id": 3, "type": "timeseries", "title": "5xx rate",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
+      "targets": [{ "refId": "A", "legendFormat": "{{env}}",
+        "expr": "sum by (env) (rate(http_requests_total{env=~\"$env\",status=\"5xx\"}[1m]))" }]
+    },
+    {
+      "id": 4, "type": "timeseries", "title": "Open WebSockets",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
+      "targets": [{ "refId": "A", "legendFormat": "{{env}}",
+        "expr": "sum by (env) (hang_ws_connections{env=~\"$env\"})" }]
+    }
+  ]
+}

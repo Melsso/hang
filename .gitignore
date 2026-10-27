@@ -2,8 +2,7 @@
 *.env
 .env.*
 !.env.example
-.api_env
-.db_env
+.api.env
 hang-backend/dev_utils/inject_data.py
 
 load_test_results.json
@@ -40,3 +39,7 @@ Thumbs.db
 *.egg-info/
 build/
 dist/
+
+.local/
+k8s/overlays/*/api.env
+k8s/overlays/*/api.secret.env

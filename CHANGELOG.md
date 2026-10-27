@@ -12,10 +12,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Test run step for frontend CI.
 - DB MAX POOLSIZE and DB OVERFLOW are now set through the config schema with defaults.
 - Dockerignore files for both frontend and backend.
+- Env and lib provisioning scripts that are called by `start.sh` to ensure proper env setup.
+- K8s infrastructure with base deployments for frontend and backend with their services, an ingress, and a base kustomization file.
+- K8s environment overlays: dev, qa, and prod. All of which have their own configuration and patching as well as secrets injection.
+- K8s monitoring with Prometheus and Grafana wired in.
 
 ### Changed
 - Moved unit tests under `tests/unit_tests`, moved `smoke_tests` to `tests/integration_tests`, updated backend CI accordingly.
 - Frontend dockerfile build as well as nginx conf now moved to frontend.
+- Moved Prometheus and Grafana infra set up to k8s.
+- Rewrote `start.sh` and `stop.sh` to match new infra.
 
 ### Fixed
 - 401 redirect without warning when auth session token expires.

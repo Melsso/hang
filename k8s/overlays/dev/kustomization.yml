@@ -1,0 +1,44 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+
+kind: Kustomization
+
+namespace: dev
+
+resources:
+  - namespace.yml
+  - ../../base
+
+configMapGenerator:
+  - name: api-config
+    envs:
+      - api.env
+
+secretGenerator:
+  - name: api-secret
+    envs:
+      - api.secret.env
+
+patches:
+  - path: patch-scale.yml
+
+  - target:
+      kind: Ingress
+      name: hang
+    patch: |-
+      - op: add
+        path: /spec/rules/0/host
+        value: dev.localtest.me
+      - op: add
+        path: /spec/tls
+        value:
+          - hosts:
+              - dev.localtest.me
+            secretName: hang-tls
+
+  - target:
+      kind: Deployment
+    patch: |-
+      - op: add
+        path: /spec/template/spec/nodeSelector
+        value:
+          hang/pool: shared
