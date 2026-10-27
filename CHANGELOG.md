@@ -3,33 +3,44 @@
 All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+
 ## [0.2.0] - In Development
 
 ### Added
-- health and readiness endpoints in backend.
-- Database is now created through `init.sql` script.
-- Retry mechanism for websocket disconnects.
-- Test run step for frontend CI.
-- DB MAX POOLSIZE and DB OVERFLOW are now set through the config schema with defaults.
-- Dockerignore files for both frontend and backend.
-- Env and lib provisioning scripts that are called by `start.sh` to ensure proper env setup.
-- K8s infrastructure with base deployments for frontend and backend with their services, an ingress, and a base kustomization file.
-- K8s environment overlays: dev, qa, and prod. All of which have their own configuration and patching as well as secrets injection.
-- K8s monitoring with Prometheus and Grafana wired in.
+- `/health` (liveness) and `/ready` (readiness) endpoints, wired into startup, readiness and liveness probes.
+- `infra/init.sql` as the single source of the database schema, applied by `start.sh`.
+- WebSocket reconnect with exponential backoff and jitter, and a resync of conversations after each reconnect.
+- `DB_POOL_SIZE` and `DB_MAX_OVERFLOW` settings with defaults.
+- `.dockerignore` files for the frontend and backend.
+- `scripts/setup-env.sh`, `scripts/cluster-up.sh` and `scripts/lib.sh`, called by `start.sh` to provision env files, the cluster, ingress and TLS.
+- Kubernetes base manifests (API and frontend deployments, services, ingress) and dev, qa and prod overlays with their own configuration, scaling and secrets.
+- Kubernetes monitoring: Prometheus and Grafana with pod discovery across the three environments.
+- `scripts/loadtest.sh` and `k8s/loadtest/job.yml.tmpl`: the load test as an in-cluster Job.
+- `scripts/seed-demo.sh` for demo data.
+- Kubernetes CI workflow that renders every overlay, deploys dev to kind and runs `scripts/smoke_test.py`.
+- Frontend test step in CI.
+- GHCR image publishing for backend and frontend on version tags.
 
 ### Changed
-- Moved unit tests under `tests/unit_tests`, moved `smoke_tests` to `tests/integration_tests`, updated backend CI accordingly.
-- Frontend dockerfile build as well as nginx conf now moved to frontend.
-- Moved Prometheus and Grafana infra set up to k8s.
-- Rewrote `start.sh` and `stop.sh` to match new infra.
+- Moved unit tests under `tests/unit_tests` and `smoke_tests` to `tests/integration_tests`; updated backend CI.
+- Frontend Dockerfile and nginx config now live in `hang-frontend`.
+- Prometheus and Grafana moved from Docker to Kubernetes.
+- Rewrote `start.sh` and `stop.sh` around the new infrastructure.
+- API image is multi-stage, pins Poetry and runs as a non-root user.
+- Google sign-in requires a verified email and no longer converts an existing password account.
+- Prod pods are pinned to a tainted node pool and dev/qa to the shared pool.
+- Postgres starts with `max_connections=200`.
+- Load test runs inside the cluster; `LOAD_TEST.md` rewritten with new results.
 
 ### Fixed
-- 401 redirect without warning when auth session token expires.
+- Expired sessions redirected without explanation; all API calls now go through `apiFetch`, which redirects to login with a message.
+- Missing colon in the frontend deployment's memory limit.
+- `.api.env.example` contained Python instead of an env value.
 
 ### Removed
-- Backend api no longer creates database tables and only connects to it with retry mechanism.
-- Nginx config and frontend dockerfile builder from `infra/nginx`.
-- Docker compose file set up being removed in favor of new incoming k8 set up.
+- The API no longer creates database tables; it only connects, with retry.
+- `infra/nginx` (config and frontend Dockerfile), the Docker Compose setup, `k8s/kind-config.yml`, `infra/.db.env.example`, and the `infra/grafana` and `infra/prometheus` directories.
+- `dev_utils/run_loadtest.sh`, `dev_utils/run_demo_seed.sh` and the `--purge-loadtest` option.
 
 
 ## [0.1.0] - 2026-10-10

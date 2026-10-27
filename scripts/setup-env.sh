@@ -26,6 +26,7 @@ ask() {
   printf -v "$var" '%s' "${val:-$def}"
 }
 
+# shellcheck disable=SC2016
 printf ': "${HTTPS_PORT:=%s}"\n' "$HTTPS_PORT" > "$LOCAL_DIR/config.env"
 
 for f in infra/.db.dev.env infra/.db.prod.env; do

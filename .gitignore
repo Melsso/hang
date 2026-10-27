@@ -3,7 +3,6 @@
 .env.*
 !.env.example
 .api.env
-hang-backend/dev_utils/inject_data.py
 
 load_test_results.json
 load_test_users.json

@@ -58,6 +58,9 @@ ensure_pg() {
     sleep 1
   done
 
+  docker exec "$name" psql -h 127.0.0.1 -U "$user" -d postgres -tAc "SELECT 1" >/dev/null 2>&1 \
+    || die "$name rejects user '$user'. The container was created with different credentials; run ./stop.sh --purge and regenerate the env files."
+
   local db has
   for db in "$@"; do
     if ! docker exec "$name" psql -h 127.0.0.1 -U "$user" -d postgres -tAc \
@@ -79,21 +82,21 @@ bash scripts/setup-env.sh
 log "Starting Postgres and Redis on the '$NETWORK_NAME' network"
 docker network inspect "$NETWORK_NAME" >/dev/null 2>&1 || docker network create "$NETWORK_NAME" >/dev/null
 
-MAIN_DBS=""
-PROD_DBS=""
+MAIN_DBS=()
+PROD_DBS=()
 for e in $TARGETS; do
   ensure_container "$(env_redis_host "$e")" "$REDIS_IMAGE" redis-server --appendonly yes
   if [ "$e" = "prod" ]; then
-    PROD_DBS="$PROD_DBS $(env_db_name "$e")"
+    PROD_DBS+=("$(env_db_name "$e")")
   else
-    MAIN_DBS="$MAIN_DBS $(env_db_name "$e")"
+    MAIN_DBS+=("$(env_db_name "$e")")
   fi
 done
-if [ -n "$MAIN_DBS" ]; then
-  ensure_pg hang-db "$(env_db_envfile dev)" $MAIN_DBS
+if [ "${#MAIN_DBS[@]}" -gt 0 ]; then
+  ensure_pg hang-db "$(env_db_envfile dev)" "${MAIN_DBS[@]}"
 fi
-if [ -n "$PROD_DBS" ]; then
-  ensure_pg hang-db-prod "$(env_db_envfile prod)" $PROD_DBS
+if [ "${#PROD_DBS[@]}" -gt 0 ]; then
+  ensure_pg hang-db-prod "$(env_db_envfile prod)" "${PROD_DBS[@]}"
 fi
 
 log "Building images"
@@ -129,5 +132,5 @@ k -n monitoring rollout status deployment/prometheus --timeout=120s
 k -n monitoring rollout status deployment/grafana --timeout=180s
 
 log "Ready:"
-echo "  https://grafana.$DOMAIN:$HTTPS_PORT"
 for e in $TARGETS; do echo "  $(env_url "$e")"; done
+echo "  https://grafana.$DOMAIN:$HTTPS_PORT"

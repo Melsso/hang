@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from hang.core.storage import StorageService
 from hang.helpers.auth import hash_password
-from hang.models.db_models import Base, Swipe, User, UserImage
+from hang.models.db_models import Swipe, User, UserImage
 from hang.schemas.config import conf
 from hang.schemas.swipes import SwipeType
 from hang.schemas.users import Gender, InterestedIn, Interests
@@ -287,11 +287,6 @@ def main() -> None:
         default="dev_utils/resources",
         help="Directory containing the 'male' and 'female' picture folders.",
     )
-    parser.add_argument(
-        "--purge-loadtest",
-        action="store_true",
-        help="Also delete load test users (loadtest_*@example.com).",
-    )
     args = parser.parse_args()
 
     database_url = (
@@ -299,7 +294,7 @@ def main() -> None:
         f"@{conf.DB_HOST}:{conf.DB_PORT}/{conf.DB_NAME}"
     )
     engine = create_engine(database_url, echo=False)
-    Base.metadata.create_all(bind=engine)
+
     db = sessionmaker(bind=engine, autoflush=False, autocommit=False)()
     storage = StorageService()
 
@@ -314,9 +309,6 @@ def main() -> None:
     try:
         removed = purge(db, f"%@{DEMO_DOMAIN}", storage)
         print(f"Removed {removed} previous demo users")
-        if args.purge_loadtest:
-            removed = purge(db, "loadtest\\_%@example.com", storage)
-            print(f"Removed {removed} load test users")
 
         password_hash = hash_password(args.password)
         everyone = DEMO_ACCOUNTS + PERSONAS

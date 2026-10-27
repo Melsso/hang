@@ -124,7 +124,7 @@ export default function Conversations() {
       });
     }
   }, resync);
-  
+
   useEffect(() => {
     sendRef.current = send;
   });

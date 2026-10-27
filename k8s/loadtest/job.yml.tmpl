@@ -1,0 +1,39 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: loadtest
+  namespace: __ENV__
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels: { app: loadtest }
+    spec:
+      restartPolicy: Never
+      nodeSelector:
+        hang/pool: shared
+      hostAliases:
+        - ip: "__INGRESS_IP__"
+          hostnames: ["__ENV__.localtest.me"]
+      containers:
+        - name: loadtest
+          image: hang-loadtest:local
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef: { name: __CONFIGMAP__ }
+            - secretRef: { name: __SECRET__ }
+          resources:
+            requests: { cpu: 500m, memory: 512Mi }
+            limits: { memory: 1Gi }
+          command:
+            - sh
+            - -c
+            - |
+              poetry run python -m dev_utils.load_test_seed --pairs 1000 &&
+              poetry run python dev_utils/load_test_client.py \
+                --url ws://__ENV__.localtest.me:80/api/ws/conversations \
+                --sweep "50,100,250,500,1000" \
+                --messages-per-user 50 \
+                --message-interval 0 \
+                --drain-seconds 30

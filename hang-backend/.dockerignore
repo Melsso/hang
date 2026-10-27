@@ -8,3 +8,11 @@ venv/
 .venv/
 
 *.md
+
+.api.env
+*.env
+__pycache__/
+*.pyc
+dev_utils/load_test_users.json
+dev_utils/load_test_results.json
+dev_utils/resources/

@@ -1,11 +1,11 @@
 # Hang
 
 A real-time social discovery app: create a profile, swipe, match on mutual likes, and chat live.
-Built as a demonstration of a horizontally scalable real-time backend: FastAPI behind nginx, several
-stateless API replicas, WebSockets fanned out through Redis pub/sub, PostgreSQL, and a Prometheus and
-Grafana monitoring stack, all running in Docker.
+Built as a demonstration of a horizontally scalable real-time backend: stateless FastAPI replicas behind an
+ingress controller, WebSockets fanned out through Redis pub/sub, PostgreSQL, and Prometheus and Grafana
+monitoring, deployed to Kubernetes (kind) in three environments.
 
-Version 0.1.0 · [Changelog](./CHANGELOG.md) · [Load test report](./hang-backend/LOAD_TEST.md) · MIT
+Version 0.2.0 · [Changelog](./CHANGELOG.md) · [Load test report](./hang-backend/LOAD_TEST.md) · MIT
 
 ## Demo
 
@@ -13,7 +13,8 @@ https://github.com/user-attachments/assets/f6411c14-d90f-4967-961b-bea334b05726
 
 ## Features
 
-- **Auth:** email/password and Google OAuth, JWT in an HTTP-only cookie, 18+ enforced.
+- **Auth:** email/password and Google OAuth, JWT in an HTTP-only cookie, 18+ enforced. Google sign-in requires
+  a verified email and never takes over an existing password account.
 - **Profiles:** images (reorder, delete, up to 6), bio, country, interests, preferences.
 - **Swipes:** like / pass / super like. The feed is scored by country, shared interests and preference,
   and returns up to 20 profiles at a time. A mutual like creates exactly one conversation.
@@ -21,8 +22,10 @@ https://github.com/user-attachments/assets/f6411c14-d90f-4967-961b-bea334b05726
   a live toast if they are on the Conversations page, and a dot on Conversations (plus a "New match"
   pill) until they open it. Nothing is queued: the state lives on the conversation.
 - **Chat:** WebSocket rooms per conversation, typing indicators, read receipts, cursor-based message pagination.
+  The client reconnects with backoff and refetches state after every reconnect.
 - **Safety and account:** block, report, unblock, change password, delete account.
-- **Operations:** shared rate limits, Prometheus metrics, Grafana dashboard, JSON logs, CI.
+- **Operations:** shared rate limits, health and readiness endpoints, Prometheus metrics, Grafana dashboard,
+  JSON logs, CI.
 
 Google sign-ups start without a birthdate, so their feed is locked (with a "Please complete your
 profile" toast) until they set one in their profile.
@@ -30,54 +33,75 @@ profile" toast) until they set one in their profile.
 ## Architecture
 
 ```text
-                    Browser
-                       │
-                       ▼
-              ┌─────────────────┐
-              │      nginx      │  serves the React build, proxies /api, upgrades WebSockets
-              └────────┬────────┘
-                       │  api:8000 (Docker DNS, N replicas)
-          ┌────────────┼────────────┐
-          ▼            ▼            ▼
-      ┌───────┐    ┌───────┐    ┌───────┐
-      │ api-1 │    │ api-2 │    │ api-N │   stateless FastAPI: REST + WebSockets
-      └───┬───┘    └───┬───┘    └───┬───┘
-          └────────────┼────────────┘
-        ┌──────────────┼──────────────────┐
-        ▼              ▼                  ▼
-   PostgreSQL     Redis                S3-compatible
-   (data)         db0: pub/sub         object storage
-                  db1: rate limits     (Cloudflare R2 / S3)
+                      Browser
+                         │  https://<env>.localtest.me:8443
+                         ▼
+          ┌─────────────────────────────┐
+          │  ingress-nginx (kind)       │  TLS with a local mkcert wildcard certificate
+          └──────┬──────────────┬───────┘
+                 │ /            │ /api (REST + WebSockets)
+                 ▼              ▼
+          ┌──────────┐   ┌───────────────────────────┐
+          │ frontend │   │ api-1 … api-N (stateless) │
+          │ (nginx)  │   └─────┬──────────┬──────────┘
+          └──────────┘         │          │          │
+                               ▼          ▼          ▼
+                         PostgreSQL     Redis    S3-compatible
+                         (data)         db0: pub/sub    object storage
+                                        db1: rate limits (Cloudflare R2 / S3)
 
-   Prometheus ──scrapes /metrics on every api replica──▶ Grafana
+   Prometheus ── pod discovery in dev, qa, prod ──▶ Grafana   (monitoring namespace)
 ```
 
 A message is persisted by the replica that receives it, then published to `conversation:<id>` in Redis.
 Every replica subscribes to `conversation:*` and `user:*` and delivers to the sockets it holds. Match
 events use the per-user channel, so they reach the right user on whichever replica holds their socket.
 
-## Services
+PostgreSQL, Redis and object storage run **outside** the cluster, by design: the cluster holds stateless
+workloads and the data lives elsewhere, the way a managed database would be used. Postgres and Redis run as
+Docker containers on the `kind` Docker network.
 
-| Service | Container | Notes |
+## Environments
+
+One cluster (1 control-plane node and 3 workers), three namespaces. Kustomize overlays in `k8s/overlays/`
+set the differences.
+
+| Env | URL | API / frontend replicas | Nodes | Postgres container | Database | Redis container |
+|---|---|---|---|---|---|---|
+| dev | https://dev.localtest.me:8443 | 2 / 1 | shared pool | `hang-db` | `hang_dev` | `hang-redis-dev` |
+| qa | https://qa.localtest.me:8443 | 2 / 1 | shared pool | `hang-db` | `hang_qa` | `hang-redis-qa` |
+| prod | https://prod.localtest.me:8443 | 3 / 2 | dedicated prod node | `hang-db-prod` | `hang_prod` | `hang-redis-prod` |
+
+- `*.localtest.me` resolves to 127.0.0.1, so no hosts file changes are needed.
+- The prod node is tainted and labelled `hang/pool=prod`, and only prod pods tolerate it. This isolates
+  compute, so dev and qa load cannot starve prod. It is not high availability: the prod pool is one node.
+- Each environment has its own API secret, Redis and bucket. Use a separate storage bucket per environment,
+  because image keys are `users/<id>/...` and would collide.
+
+Other cluster components, all in `k8s/`: `base/` (api and frontend deployments, services, ingress),
+`monitoring/` (Prometheus, Grafana) and `overlays/`.
+
+### Health checks
+
+| Endpoint | Probe | Checks |
 |---|---|---|
-| nginx + React build | `hang-nginx` | Published on `localhost:8000` |
-| API | `api` (scaled) | Not published; reached through nginx |
-| PostgreSQL 16 | `hang-db-local` | Started by `start.sh`, not published |
-| Redis 7 | `hang-redis-local` | Started by `start.sh`, not published |
-| Prometheus | `hang-prometheus` | Not published |
-| Grafana | `hang-grafana` | Published on `localhost:3000` |
+| `/health` | liveness | The process responds and the Redis subscriber and WebSocket heartbeat tasks are still running. |
+| `/ready` | startup and readiness | PostgreSQL reachable with the `users` table present, and Redis answers `PING`. |
 
-All containers share the external Docker network `hang-network`.
+Neither depends on a dependency in liveness, so a database or Redis outage does not restart every pod.
+Both sit at the root, are not routed by the ingress, and are excluded from metrics and request logs.
 
 ## Tech stack
 
 Backend: Python 3.11, FastAPI, SQLAlchemy 2, PostgreSQL, Redis, slowapi, Authlib, boto3, Pydantic.
 Frontend: React 19, TypeScript, Vite, Tailwind CSS 4, React Router 7, Framer Motion, dnd-kit.
-Infra: Docker, nginx, Prometheus, Grafana, GitHub Actions.
+Infra: Docker, Kubernetes (kind, Kustomize, ingress-nginx), Prometheus, Grafana, GitHub Actions.
 
 ## Running locally
 
-Requirements: Docker, plus Poetry and Node 22 if you want to run tests or the frontend dev server.
+Requirements: Docker, [kind](https://kind.sigs.k8s.io/), kubectl, [mkcert](https://github.com/FiloSottile/mkcert)
+and openssl. On macOS: `brew install kind kubectl mkcert`. Poetry and Node 22 are needed only to run tests or
+the frontend dev server.
 
 1. Clone:
 ```bash
@@ -85,66 +109,62 @@ Requirements: Docker, plus Poetry and Node 22 if you want to run tests or the fr
    cd hang
 ```
 
-2. Create the env files:
+2. Start one or more environments (default `dev`):
 ```bash
-   cp hang-backend/.api.env.example hang-backend/.api_env
-   cp hang-backend/.db.env.example infra/.db_env
+   ./start.sh            # dev
+   ./start.sh dev qa     # several
+```
+   The script generates missing env files (asking once for storage and Google values, both optional),
+   starts Postgres and Redis, creates the databases and applies `infra/init.sql`, builds both images,
+   creates the cluster with ingress and TLS, loads the images, deploys the overlays and the monitoring stack,
+   and waits for the rollouts. `mkcert -install` may ask for your password once.
+
+3. Open:
+   - App: https://dev.localtest.me:8443 (or `qa` / `prod`)
+   - Grafana: https://grafana.localtest.me:8443
+
+   Grafana allows anonymous viewing, and you can log in as `admin` / `admin` to edit. This is acceptable
+   because the cluster only listens on 127.0.0.1. The host port defaults to 8443; set `HTTPS_PORT` to change
+   it, and update the Google redirect URIs to match.
+
+4. Stop:
+```bash
+   ./stop.sh            # deletes the cluster, stops Postgres and Redis (data is kept)
+   ./stop.sh --purge    # also removes those containers and their data
 ```
 
-3. Fill them in. When running through `start.sh`:
+Running `./start.sh` again rebuilds the images and restarts the deployments, so code changes show up. It never
+reinitialises a database that already has the schema.
 
-   | Variable | Value |
-   |---|---|
-   | `DB_HOST` | `hang-db-local` |
-   | `DB_PORT` | `5432` |
-   | `REDIS_HOST` | `hang-redis-local` |
-   | `REDIS_PORT` | `6379` |
-   | `DB_USER` / `DB_PASSWORD` / `DB_NAME` | must equal `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` in `infra/.db_env` |
-   | `SECRET_KEY` | `openssl rand -hex 32` |
-   | `COOKIE_SECURE` | `false` locally, `true` behind HTTPS |
-   | `GOOGLE_REDIRECT_URI` | `http://localhost:8000/api/auth/login/google/callback` (register it in the Google console) |
-   | `R2_*` | credentials for any S3-compatible bucket |
+### Configuration
 
-   The full list is in [hang-backend/README.md](./hang-backend/README.md#configuration).
+`scripts/setup-env.sh` generates these gitignored files from the committed `*.example` templates:
+`infra/.db.dev.env`, `infra/.db.prod.env`, and `api.env` and `api.secret.env` in each overlay. It skips files
+that exist; `--force` regenerates the API files (new `SECRET_KEY`, which invalidates sessions). Database
+credentials are never regenerated, because Postgres only reads them when a container is first created. If a
+database container rejects the user, recreate it with `./stop.sh --purge`.
 
-4. Start with the number of API replicas you want:
-```bash
-   ./start.sh 3
-```
-   This creates the network, starts Redis and Postgres (building their images if needed), then builds and starts the compose stack.
+Without storage values, the app runs but picture uploads fail. Without Google values, email and password login
+still works. The variable list is in [hang-backend/README.md](./hang-backend/README.md#configuration).
 
-5. Open:
-   - App: http://localhost:8000
-   - Grafana: http://localhost:3000 (default `admin` / `admin`; the Prometheus datasource and dashboard are provisioned)
+### Schema
 
-6. Stop everything:
-```bash
-   ./stop.sh
-```
-
-Postgres has no named volume by default. `stop.sh` only stops the containers, so data survives that, but
-removing the `hang-db-local` container deletes it. To keep data across removals, add
-`-v hang_postgres_data:/var/lib/postgresql/data` to the Postgres `docker run` in `start.sh`.
-
-The schema is created with `create_all` on startup and there are no migrations. After a model change,
-recreate the database: `docker compose down && docker rm -fv hang-db-local && ./start.sh 3`.
+There are no migrations, deliberately: the schema is fixed for this project. `infra/init.sql` is the only
+source of truth, applied by `start.sh` to any database that lacks the `users` table. The API only connects
+and never creates tables. After a model change, regenerate the file with
+`pg_dump --schema-only --no-owner --no-privileges` and recreate the database.
 
 ## Demo data
 
-Postgres and Redis are not published to the host, so the seed script runs in a container on the Docker
-network. From `hang-backend`:
-
 ```bash
-chmod +x dev_utils/run_demo_seed.sh
-NETWORK=hang-network DB_HOST=hang-db-local REDIS_HOST=hang-redis-local ./dev_utils/run_demo_seed.sh
+scripts/seed-demo.sh dev
 ```
 
-It creates two demo accounts (`jake@hang-demo.com` and `sam@hang-demo.com`, password
-`demo-password-123`) and twelve more profiles to fill the feed. Five of them have already liked both demo
-accounts, so liking them back produces an instant match. Pictures are taken from
-`hang-backend/dev_utils/resources/male` and `.../female` (you provide them; one per user). The script is
-re-runnable: it deletes the previous demo users first. Add `--purge-loadtest` to also remove load test
-users.
+Creates two demo accounts (`jake@hang-demo.com` and `sam@hang-demo.com`, password `demo-password-123`) and
+twelve more profiles to fill the feed. Five of them have already liked both demo accounts, so liking them back
+produces an instant match. Pictures come from `hang-backend/dev_utils/resources/male` and `.../female` (you
+provide them; one per user) and are uploaded to that environment's storage bucket, so this needs real storage
+values. The script is re-runnable: it deletes the previous demo users first.
 
 To use two accounts at once, log in from two different browsers (or a normal and a private window), since
 the session is a cookie shared by all windows of one browser profile.
@@ -156,8 +176,8 @@ cd hang-backend
 poetry install
 poetry run ruff check .
 poetry run mypy .
-poetry run pytest                 # unit tests (tests/), needs Docker for testcontainers
-poetry run pytest smoke_tests     # infrastructure smoke tests, must run as a separate session
+poetry run pytest tests/unit_tests          # needs Docker for testcontainers
+poetry run pytest tests/integration_tests   # must run as a separate session
 ```
 
 Frontend:
@@ -165,36 +185,44 @@ Frontend:
 ```bash
 cd hang-frontend
 npm ci
+npm run format:check
 npm run lint
 npm test
 npm run build
 ```
 
+CI (`.github/workflows/`) runs backend and frontend checks, renders every Kustomize overlay, deploys the dev
+overlay to a kind cluster and runs `scripts/smoke_test.py` through the ingress (two users match, and one
+WebSocket message is delivered). Pushing a `v*` tag creates a GitHub release and publishes the backend and
+frontend images to GHCR.
+
 ## Load testing
 
-The WebSocket layer was tested end to end through nginx, across three API replicas, with real Redis
-fan-out and real Postgres writes. Delivery is counted only when the other participant in a conversation
-receives the message.
+The WebSocket layer was tested through the ingress controller in the `prod` environment, across three API
+replicas, with real Redis fan-out and real Postgres writes. Delivery is counted only when the other
+participant in a conversation receives it. The run delivered all 190,000 messages at up to 2,000 concurrent
+connections, with p99 latency of 551.9 ms at the 2,000-connection level. Methodology, environment, results,
+limitations and reproduction steps are in [hang-backend/LOAD_TEST.md](./hang-backend/LOAD_TEST.md).
 
-**100% delivery across 190,000 messages at up to 2,000 concurrent connections, p99 under 111 ms.**
-The test also found two real bugs. Methodology, results, caveats and reproduction steps are in
-[hang-backend/LOAD_TEST.md](./hang-backend/LOAD_TEST.md).
+```bash
+scripts/loadtest.sh prod
+```
 
 ## Project structure
 
 ```text
 hang/
 ├── hang-backend/        FastAPI service, tests, load test and demo seed tooling
-├── hang-frontend/       React + TypeScript app and its tests
-├── infra/
-│   ├── nginx/           nginx image (builds the frontend) and config
-│   ├── prometheus/      Prometheus image and scrape config
-│   ├── grafana/         Grafana image, provisioning and dashboard
-│   ├── Dockerfile.db    PostgreSQL image
-│   └── Dockerfile.redis Redis image
-├── .github/workflows/   backend-ci, frontend-ci, release
-├── docker-compose.yml   nginx, api, prometheus, grafana
-├── start.sh             creates network, Redis, Postgres, then the compose stack
+├── hang-frontend/       React + TypeScript app, its tests, Dockerfile and nginx config
+├── infra/               init.sql (database schema) and generated database env files
+├── k8s/
+│   ├── base/            API and frontend deployments, services, ingress
+│   ├── overlays/        dev, qa, prod (replicas, resources, node placement, secrets)
+│   ├── monitoring/      Prometheus and Grafana
+│   └── loadtest/        load test Job template
+├── scripts/             cluster-up, setup-env, loadtest, seed-demo, smoke_test, shared lib
+├── .github/workflows/   backend-ci, frontend-ci, k8s-ci, release
+├── start.sh             one command from a clean checkout to running environments
 ├── stop.sh
 ├── CHANGELOG.md
 └── LICENSE
@@ -202,13 +230,17 @@ hang/
 
 ## Known limitations
 
-- nginx resolves `api:8000` once at startup. If the API containers are recreated with new addresses,
-  restart nginx (`docker restart hang-nginx`).
-- Access tokens last `ACCESS_TOKEN_EXPIRE_MINUTES` (30 by default) and there is no refresh flow.
-- Delivery over Redis pub/sub is fire-and-forget: there are no acknowledgements or offline delivery.
-  Match events for offline users are not queued; they see the dot on their next page load.
+- **Local only.** The cluster is kind on one machine. There is no cloud deployment.
+- **Prod isolation is not high availability.** One dedicated node, no failover.
+- **Postgres and Redis have no backups or named volumes.** `./stop.sh` keeps the containers and their data;
+  removing them deletes it.
+- **Delivery over Redis pub/sub is fire-and-forget.** There are no acknowledgements and no offline delivery.
+  Match events for offline users are not queued; they see the dot on their next page load. After a
+  reconnect, the client refetches the conversation list and the open conversation to catch up.
+- Access tokens last `ACCESS_TOKEN_EXPIRE_MINUTES` (30 by default) and there is no refresh flow. An expired
+  session redirects to the login page.
 - The notification dot refreshes on navigation. Only the Conversations page holds a WebSocket.
-- Single-host Docker deployment only; there is no cloud deployment.
+- Grafana is anonymous-viewer by default, which is only safe because the cluster listens on loopback.
 
 ## License
 

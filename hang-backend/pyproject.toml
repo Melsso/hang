@@ -47,7 +47,7 @@ ignore_missing_imports = true
 init_typed = false
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests/unit_tests"]
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]

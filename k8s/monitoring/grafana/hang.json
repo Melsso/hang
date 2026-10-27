@@ -11,7 +11,7 @@
         "name": "env",
         "type": "query",
         "datasource": { "type": "prometheus", "uid": "prometheus" },
-        "query": "label_values(http_requests_total, env)",
+        "query": "label_values(up{job=\"hang-api\"}, env)",
         "includeAll": true,
         "multi": true,
         "refresh": 2,
