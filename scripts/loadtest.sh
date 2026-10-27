@@ -16,7 +16,10 @@ k -n "$E" get deployment api >/dev/null 2>&1 || die "'$E' is not deployed. Run .
 
 CM="$(k -n "$E" get configmap -o name | sed 's#configmap/##' | grep '^api-config' | head -1)"
 SECRET="$(k -n "$E" get secret -o name | sed 's#secret/##' | grep '^api-secret' | head -1)"
-[ -n "$CM" ] && [ -n "$SECRET" ] || die "could not find api-config / api-secret in namespace $E"
+
+if [ -z "$CM" ] || [ -z "$SECRET" ]; then
+  die "could not find api-config / api-secret in namespace $E"
+fi
 
 INGRESS_IP="$(k -n ingress-nginx get svc ingress-nginx-controller -o jsonpath='{.spec.clusterIP}')"
 [ -n "$INGRESS_IP" ] || die "ingress controller service not found"
