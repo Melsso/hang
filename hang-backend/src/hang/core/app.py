@@ -6,6 +6,7 @@ from hang.core.middleware import register_middleware
 from hang.core.startup import lifespan
 
 from hang.routes.auth import auth_router
+from hang.routes.health import health_router
 from hang.routes.users import user_router
 from hang.routes.swipes import swipe_router
 from hang.routes.conversations import conversation_router
@@ -21,11 +22,14 @@ def create_app() -> FastAPI:
         title="Hang", description="Dating App", version="0.1.0", lifespan=lifespan
     )
 
-    Instrumentator().instrument(app).expose(app)
+    Instrumentator(excluded_handlers=["/health", "/ready", "/metrics"]).instrument(
+        app
+    ).expose(app)
 
     register_middleware(app)
 
     app.include_router(auth_router, prefix="/api")
+    app.include_router(health_router)
     app.include_router(user_router, prefix="/api")
     app.include_router(swipe_router, prefix="/api")
     app.include_router(conversation_router, prefix="/api")

@@ -74,7 +74,7 @@ jobs:
         run: poetry run mypy .
 
       - name: Unit Tests
-        run: poetry run pytest tests
+        run: poetry run pytest tests/unit_tests
 
-      - name: Smoke Tests
-        run: poetry run pytest smoke_tests
+      - name: Integration Tests
+        run: poetry run pytest tests/integration_tests

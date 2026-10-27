@@ -5,7 +5,6 @@ import time
 import logging
 
 from hang.schemas.config import conf
-from hang.models.db_models import Base
 
 logger = logging.getLogger("Hang")
 
@@ -33,15 +32,14 @@ def init_db():
             engine = create_engine(
                 DATABASE_URL,
                 echo=False,
-                pool_size=10,
-                max_overflow=10,
+                pool_size=conf.DB_POOL_SIZE,
+                max_overflow=conf.DB_MAX_OVERFLOW,
                 pool_pre_ping=True,
             )
 
             with engine.connect() as conn:
                 conn.execute(text("SELECT 1"))
 
-            Base.metadata.create_all(bind=engine)
             SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
             logger.info(
@@ -65,7 +63,7 @@ def init_db():
                     "context": {"location": "init_db"},
                 },
             )
-            time.sleep(30)
+            time.sleep(2)
 
 
 def get_db():

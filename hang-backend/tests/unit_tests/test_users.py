@@ -5,7 +5,7 @@ from PIL import Image
 
 from hang.models.db_models import User, Conversation, UserReport, UserBlock, UserImage
 from hang.schemas.config import conf
-from tests.utils import make_user_row
+from unit_tests.utils import make_user_row
 
 
 def make_test_png() -> bytes:

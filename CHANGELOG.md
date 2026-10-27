@@ -3,6 +3,29 @@
 All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.2.0] - In Development
+
+### Added
+- health and readiness endpoints in backend.
+- Database is now created through `init.sql` script.
+- Retry mechanism for websocket disconnects.
+- Test run step for frontend CI.
+- DB MAX POOLSIZE and DB OVERFLOW are now set through the config schema with defaults.
+- Dockerignore files for both frontend and backend.
+
+### Changed
+- Moved unit tests under `tests/unit_tests`, moved `smoke_tests` to `tests/integration_tests`, updated backend CI accordingly.
+- Frontend dockerfile build as well as nginx conf now moved to frontend.
+
+### Fixed
+- 401 redirect without warning when auth session token expires.
+
+### Removed
+- Backend api no longer creates database tables and only connects to it with retry mechanism.
+- Nginx config and frontend dockerfile builder from `infra/nginx`.
+- Docker compose file set up being removed in favor of new incoming k8 set up.
+
+
 ## [0.1.0] - 2026-10-10
 
 First tagged version.

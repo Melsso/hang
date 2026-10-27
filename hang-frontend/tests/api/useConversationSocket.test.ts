@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { renderHook } from "@testing-library/react";
 import { useConversationsSocket } from "../../src/api/useConversationSocket";
+import { act } from "@testing-library/react";
+import * as client from "../../src/api/client";
 
 class FakeSocket {
   static OPEN = 1;
@@ -12,12 +14,17 @@ class FakeSocket {
   closed = false;
   onopen: (() => void) | null = null;
   onmessage: ((event: { data: string }) => void) | null = null;
-  onclose: (() => void) | null = null;
+  onclose: ((event: { code: number }) => void) | null = null;
   onerror: ((err: unknown) => void) | null = null;
 
   constructor(url: string) {
     this.url = url;
     FakeSocket.instances.push(this);
+  }
+
+  drop(code = 1006) {
+    this.readyState = 3;
+    this.onclose?.({ code });
   }
 
   send(data: string) {
@@ -121,5 +128,101 @@ describe("useConversationsSocket", () => {
     unmount();
 
     expect(socket.closed).toBe(true);
+  });
+});
+
+vi.mock("../../src/api/client", async (orig) => ({
+  ...(await orig<typeof import("../../src/api/client")>()),
+  handleUnauthorized: vi.fn(),
+}));
+
+function stubSession(authenticated: boolean) {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ authenticated }) })
+  );
+}
+
+describe("reconnect", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.spyOn(Math, "random").mockReturnValue(1); // no jitter: delay = full backoff step
+    vi.stubGlobal("WebSocket", FakeSocket);
+    stubSession(true);
+  });
+  afterEach(() => vi.useRealTimers());
+
+  it("reconnects after an unexpected close and fires onReconnect on the next ready", async () => {
+    const onReconnect = vi.fn();
+    renderHook(() => useConversationsSocket(vi.fn(), onReconnect));
+
+    act(() => FakeSocket.instances[0].emit({ type: "ready" }));
+    expect(onReconnect).not.toHaveBeenCalled();
+
+    await act(async () => {
+      FakeSocket.instances[0].drop();
+      await vi.advanceTimersByTimeAsync(1100);
+    });
+    expect(FakeSocket.instances).toHaveLength(2);
+
+    act(() => FakeSocket.instances[1].emit({ type: "ready" }));
+    expect(onReconnect).toHaveBeenCalledTimes(1);
+  });
+
+  it("backs off exponentially while the server stays down", async () => {
+    renderHook(() => useConversationsSocket(vi.fn()));
+
+    await act(async () => {
+      FakeSocket.instances[0].drop();
+      await vi.advanceTimersByTimeAsync(1100); // 1s step
+    });
+    expect(FakeSocket.instances).toHaveLength(2);
+
+    await act(async () => {
+      FakeSocket.instances[1].drop();
+      await vi.advanceTimersByTimeAsync(1100); // needs 2s
+    });
+    expect(FakeSocket.instances).toHaveLength(2);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+    expect(FakeSocket.instances).toHaveLength(3);
+  });
+
+  it("sends the user to login instead of retrying when the session is gone", async () => {
+    stubSession(false);
+    renderHook(() => useConversationsSocket(vi.fn()));
+
+    await act(async () => {
+      FakeSocket.instances[0].drop();
+      await vi.advanceTimersByTimeAsync(5000);
+    });
+
+    expect(client.handleUnauthorized).toHaveBeenCalled();
+    expect(FakeSocket.instances).toHaveLength(1);
+  });
+
+  it("does not reconnect after unmount", async () => {
+    const { unmount } = renderHook(() => useConversationsSocket(vi.fn()));
+    const socket = FakeSocket.instances[0];
+    unmount();
+
+    await act(async () => {
+      socket.drop();
+      await vi.advanceTimersByTimeAsync(60000);
+    });
+    expect(FakeSocket.instances).toHaveLength(1);
+  });
+
+  it("reports connected only between ready and close", () => {
+    const { result } = renderHook(() => useConversationsSocket(vi.fn()));
+    expect(result.current.connected).toBe(false);
+
+    act(() => FakeSocket.instances[0].emit({ type: "ready" }));
+    expect(result.current.connected).toBe(true);
+
+    act(() => FakeSocket.instances[0].drop());
+    expect(result.current.connected).toBe(false);
   });
 });

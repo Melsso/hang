@@ -13,6 +13,12 @@ from hang.schemas.config import conf
 
 
 logger = logging.getLogger("Hang")
+PROBE_PATHS = {"/health", "/ready"}
+
+
+async def log_requests(request: Request, call_next):
+    if request.url.path in PROBE_PATHS:
+        return await call_next(request)
 
 
 def rate_limit_key(request: Request) -> str:

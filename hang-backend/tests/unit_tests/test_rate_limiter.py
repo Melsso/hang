@@ -2,7 +2,7 @@ import pytest
 
 from hang.models.db_models import User
 from hang.helpers.auth import pwd_context
-from tests.utils import make_user_row
+from unit_tests.utils import make_user_row
 from hang.core.limits import AUTH, FREQUENT
 
 

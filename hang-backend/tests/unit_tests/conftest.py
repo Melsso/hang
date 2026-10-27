@@ -24,8 +24,8 @@ import hang.helpers.conversations as conv_helpers
 from hang.models.db_models import Base, User
 from hang.schemas.config import conf
 
-from tests.utils import populate_db
-from tests.fakes import FakeStorageService
+from unit_tests.utils import populate_db
+from unit_tests.fakes import FakeStorageService
 
 
 @pytest.fixture(scope="session")

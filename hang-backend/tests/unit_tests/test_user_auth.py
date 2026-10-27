@@ -9,7 +9,7 @@ from fastapi.responses import RedirectResponse
 from hang.models.db_models import User
 from hang.helpers.auth import hash_password, create_access_token
 from hang.helpers.users import get_current_user
-from tests.utils import make_user_row
+from unit_tests.utils import make_user_row
 
 
 def test_register_success(client, db):
@@ -36,6 +36,27 @@ def test_register_success(client, db):
     assert created_user is not None
     assert created_user.first_name == "John"
     assert created_user.password != "a-strong-password-123"
+
+
+def _google_token(email="google@test.com", verified=True):
+    return {
+        "userinfo": {
+            "email": email,
+            "given_name": "J",
+            "family_name": "G",
+            "sub": "g-1",
+            "email_verified": verified,
+        }
+    }
+
+
+def _callback(client, token):
+    with patch(
+        "hang.core.oauth.oauth_serv.google.authorize_access_token",
+        new_callable=AsyncMock,
+    ) as m:
+        m.return_value = token
+        return client.get("/api/auth/login/google/callback", follow_redirects=False)
 
 
 @pytest.mark.parametrize(
@@ -211,6 +232,7 @@ def test_google_callback_creates_user(client, db):
     fake_token = {
         "userinfo": {
             "email": "google@test.com",
+            "email_verified": True,
             "given_name": "John",
             "family_name": "Google",
             "sub": "google-123",
@@ -267,6 +289,7 @@ def test_google_callback_existing_user(client, db):
     fake_token = {
         "userinfo": {
             "email": "google@test.com",
+            "email_verified": True,
             "given_name": "John",
             "family_name": "Google",
             "sub": "new-google-id",
@@ -297,6 +320,7 @@ def test_google_callback_auth_failure(client):
     fake_token = {
         "userinfo": {
             "email": "g@test.com",
+            "email_verified": True,
             "sub": "google",
         }
     }
@@ -319,7 +343,7 @@ def test_google_callback_auth_failure(client):
         )
 
     assert response.status_code == 307
-    assert response.headers["location"] == "/login"
+    assert response.headers["location"] == "/login?error=google"
 
 
 def test_logout(client, db):
@@ -365,3 +389,36 @@ def test_session_with_valid_cookie_is_authenticated(client, db):
     assert body["authenticated"] is True
     assert body["user_id"] == john.user_id
     assert body["onboarding_required"] is False
+
+
+@pytest.mark.parametrize(
+    "db",
+    [
+        {
+            User: [
+                make_user_row(
+                    "john@test.com", "John", password=hash_password("test123")
+                )
+            ]
+        }
+    ],
+    indirect=True,
+)
+def test_google_callback_does_not_take_over_local_account(client, db):
+    r = _callback(client, _google_token(email="john@test.com"))
+    assert r.headers["location"] == "/login?error=google"
+
+    user = db.query(User).filter(User.email == "john@test.com").first()
+    assert user.auth_provider == "local"
+    assert user.oauth_id == ""
+    login = client.post(
+        "/api/auth/login", json={"email": "john@test.com", "password": "test123"}
+    )
+    assert login.status_code == 200
+
+
+def test_google_callback_unverified_email_rejected(client, db):
+    r = _callback(client, _google_token(verified=False))
+    assert r.headers["location"] == "/login?error=google"
+    assert "access_token" not in r.cookies
+    assert db.query(User).filter(User.email == "google@test.com").first() is None

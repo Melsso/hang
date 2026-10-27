@@ -26,7 +26,21 @@ export default function Conversations() {
   const navigate = useNavigate();
 
   const sendRef = useRef<(payload: Record<string, unknown>) => void>(() => {});
-  const { send } = useConversationsSocket((event) => {
+
+  const resync = async () => {
+    const list = await get_user_conversations();
+    if (list) setConversations(list);
+
+    const activeId = activeConversationRef.current;
+    if (activeId === null) return;
+    const msgs = await get_conversation_messages(activeId);
+    if (msgs && activeConversationRef.current === activeId) {
+      setMessageData(msgs);
+      sendRef.current({ type: "read", conversation_id: activeId });
+    }
+  };
+
+  const { send, connected } = useConversationsSocket((event) => {
     if (event.type === "message") {
       const { message } = event;
       const conversation_id = message.conversation_id;
@@ -109,6 +123,10 @@ export default function Conversations() {
         };
       });
     }
+  }, resync);
+  
+  useEffect(() => {
+    sendRef.current = send;
   });
 
   useEffect(() => {
@@ -175,13 +193,18 @@ export default function Conversations() {
     }
   };
 
-  const handleSend = (text: string) => {
-    if (!selectedConversation) return;
-    send({
+  const handleSend = (text: string): boolean => {
+    if (!selectedConversation) return false;
+    const sent = send({
       type: "message",
       conversation_id: selectedConversation.conversation_id,
       content: text,
     });
+    if (!sent || !connected) {
+      showToast("Reconnecting, try again in a moment.", "info");
+      return false;
+    }
+    return true;
   };
 
   const handleTyping = () => {

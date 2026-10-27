@@ -11,7 +11,7 @@ from hang.models.db_models import User, Conversation, Message, UserBlock
 
 import hang.helpers.ws as ws_helpers
 from hang.helpers.auth import create_access_token
-from tests.utils import make_user_row
+from unit_tests.utils import make_user_row
 
 
 def _wait_for(predicate, timeout: float = 2.0) -> bool:

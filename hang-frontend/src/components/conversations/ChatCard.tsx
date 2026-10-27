@@ -20,7 +20,7 @@ export type MessageListResponse = {
 
 type Props = {
   data: MessageListResponse | null;
-  onSend?: (text: string) => void;
+  onSend?: (text: string) => boolean | void;
   onTyping?: (text: string) => void;
   onLoadMore?: (cursor: number) => Promise<void>;
 };
@@ -55,10 +55,16 @@ function MessageInput({
   onSend,
   onTyping,
 }: {
-  onSend?: (text: string) => void;
+  onSend?: (text: string) => boolean | void;
   onTyping?: (text: string) => void;
 }) {
   const [text, setText] = useState("");
+  const submit = () => {
+    if (!text.trim()) return;
+    if (onSend?.(text) === false) return;
+    setText("");
+  };
+
   return (
     <div className="flex gap-3 p-4 bg-[#141414] border-t border-white/5 rounded-b-2xl">
       <input
@@ -70,10 +76,7 @@ function MessageInput({
         onKeyDown={(e) => {
           if (e.key === "Enter") {
             e.preventDefault();
-            if (!text.trim()) return;
-
-            onSend?.(text);
-            setText("");
+            submit();
           }
         }}
         type="text"
@@ -84,9 +87,7 @@ function MessageInput({
       <Button
         className="px-6 rounded-xl font-medium bg-[#e50914] text-white hover:bg-[#f6121d] active:scale-[0.98] transition"
         onClick={() => {
-          if (!text.trim()) return;
-          onSend?.(text);
-          setText("");
+          submit();
         }}
       >
         Send

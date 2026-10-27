@@ -51,10 +51,13 @@ def authenticate_user_local(db: Session, email: str, password: str) -> Optional[
 
 def authenticate_user_google(db: Session, google_user_info: dict) -> Optional[User]:
     try:
-        email = google_user_info["email"]
+        if google_user_info.get("email_verified") is not True:
+            return None
+
+        email = google_user_info["email"].lower()
         user = db.query(User).filter(User.email == email).first()
 
-        if not user:
+        if user is None:
             user = User(
                 email=email,
                 first_name=google_user_info.get("given_name", ""),
@@ -71,15 +74,17 @@ def authenticate_user_google(db: Session, google_user_info: dict) -> Optional[Us
             db.add(user)
             db.commit()
             db.refresh(user)
-        else:
-            user.auth_provider = "google"
+            return user
+
+        if user.auth_provider != "google":
+            return None
+
+        if user.oauth_id != google_user_info["sub"]:
             user.oauth_id = google_user_info["sub"]
             db.commit()
-
         return user
 
     except Exception:
-        # TODO log failure
         db.rollback()
         return None
 

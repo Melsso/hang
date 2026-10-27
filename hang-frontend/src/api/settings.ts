@@ -1,59 +1,29 @@
-export async function getBlockedUsers() {
-  const res = await fetch("/api/settings/blocks", {
-    credentials: "include",
-  });
-  if (!res.ok) return null;
-  return res.json();
-}
+import { apiFetch } from "./client";
 
-export async function getReports() {
-  const res = await fetch("/api/settings/reports", {
-    credentials: "include",
-  });
-  if (!res.ok) return null;
-  return res.json();
-}
+const JSON_HEADERS = { "Content-Type": "application/json" };
 
-export async function unblockUser(userId: number) {
-  const res = await fetch("/api/settings/unblock", {
+async function post(path: string, body?: unknown) {
+  const res = await apiFetch(path, {
     method: "POST",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ blocked_user_id: userId }),
+    headers: body === undefined ? undefined : JSON_HEADERS,
+    body: body === undefined ? undefined : JSON.stringify(body),
   });
   if (!res.ok) return null;
   return res.json();
 }
 
-export async function deleteReport(reportId: number) {
-  const res = await fetch("/api/settings/report-delete", {
-    method: "POST",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ reported_user_id: reportId }),
-  });
+async function get(path: string) {
+  const res = await apiFetch(path);
   if (!res.ok) return null;
   return res.json();
 }
 
-export async function changePassword(oldPassword: string, newPassword: string) {
-  const res = await fetch("/api/settings/change-password", {
-    method: "POST",
-    credentials: "include",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ old_password: oldPassword, new_password: newPassword }),
-  });
-  if (!res.ok) return null;
-  return res.json();
-}
-
-export async function deleteAccount() {
-  const res = await fetch("/api/settings/delete-account", {
-    method: "POST",
-    credentials: "include",
-  });
-  if (!res.ok) return null;
-  return res.json();
-}
+export const getBlockedUsers = () => get("/api/settings/blocks");
+export const getReports = () => get("/api/settings/reports");
+export const unblockUser = (userId: number) =>
+  post("/api/settings/unblock", { blocked_user_id: userId });
+export const deleteReport = (reportId: number) =>
+  post("/api/settings/report-delete", { reported_user_id: reportId });
+export const changePassword = (oldPassword: string, newPassword: string) =>
+  post("/api/settings/change-password", { old_password: oldPassword, new_password: newPassword });
+export const deleteAccount = () => post("/api/settings/delete-account");
