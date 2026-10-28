@@ -10,6 +10,8 @@ class Settings(BaseSettings):
     DB_NAME: str
     DB_HOST: str
     DB_PORT: int = 5432
+    DB_POOL_SIZE: int = 5
+    DB_MAX_OVERFLOW: int = 5
 
     REDIS_HOST: str
     REDIS_PORT: int = 6379
@@ -39,7 +41,7 @@ class Settings(BaseSettings):
     def split_allowed_image_types(cls, v: str) -> List[str]:
         return [x.strip() for x in v.split(",") if x.strip()]
 
-    model_config = SettingsConfigDict(env_file=".api_env", env_file_encoding="utf-8")
+    model_config = SettingsConfigDict(env_file=".api.env", env_file_encoding="utf-8")
 
 
 conf = Settings()

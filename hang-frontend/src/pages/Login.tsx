@@ -1,12 +1,23 @@
 import type { FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useToast } from "../components/global/ToastProvider";
 import { login } from "../api/auth";
 import Button from "../components/global/Button";
 
 export default function Login() {
   const navigate = useNavigate();
+  const [params] = useSearchParams();
   const { showToast } = useToast();
+
+  useEffect(() => {
+    if (params.get("expired")) {
+      showToast("Your session expired, please log in again.", "info");
+    } else if (params.get("error") === "google") {
+      showToast("Google sign-in failed. If you registered with a password, use that.", "error");
+    }
+  }, [params, showToast]);
+
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 

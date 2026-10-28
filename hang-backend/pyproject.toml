@@ -1,6 +1,6 @@
 [project]
 name = "hang"
-version = "0.1.0"
+version = "0.2.0"
 description = ""
 authors = [
     {name = "Mallem Sofiane",email = "melsopv@gmail.com"}
@@ -47,7 +47,7 @@ ignore_missing_imports = true
 init_typed = false
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests/unit_tests"]
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
@@ -62,7 +62,6 @@ dev = [
     "types-python-jose (>=3.5.0.20260408,<4.0.0.0)",
     "types-authlib (>=1.7.2.20260724,<2.0.0.0)",
     "boto3-stubs[s3] (>=1.43.57,<2.0.0)",
-    "ruff (>=0.15.21,<0.16.0)",
     "pytest (>=9.1.1,<10.0.0)",
     "testcontainers (>=4.14.2,<5.0.0)",
     "pillow (>=12.3.0,<13.0.0)",

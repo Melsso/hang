@@ -1,0 +1,125 @@
+name: Kubernetes CI
+
+on:
+  push:
+    paths:
+      - "k8s/**"
+      - "scripts/**"
+      - "infra/**"
+      - "start.sh"
+      - "stop.sh"
+      - "hang-backend/**"
+      - "hang-frontend/**"
+      - ".github/workflows/k8s-ci.yml"
+  pull_request:
+    paths:
+      - "k8s/**"
+      - "scripts/**"
+      - "infra/**"
+      - "start.sh"
+      - "stop.sh"
+      - "hang-backend/**"
+      - "hang-frontend/**"
+      - ".github/workflows/k8s-ci.yml"
+  workflow_dispatch:
+
+jobs:
+  validate:
+    name: Validate manifests and scripts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Shellcheck
+        run: shellcheck -x -e SC1090,SC1091 start.sh stop.sh scripts/*.sh
+
+      - name: Render every overlay
+        run: |
+          for e in dev qa prod; do
+            cp k8s/overlays/$e/api.env.example k8s/overlays/$e/api.env
+            cp k8s/overlays/$e/api.secret.env.example k8s/overlays/$e/api.secret.env
+            kubectl kustomize k8s/overlays/$e > /dev/null
+            echo "$e renders"
+          done
+          kubectl kustomize k8s/monitoring > /dev/null
+
+  e2e:
+    name: Deploy to kind and smoke test
+    runs-on: ubuntu-latest
+    needs: validate
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate env files
+        run: |
+          # Non-interactive: placeholders for storage and Google.
+          bash scripts/setup-env.sh
+          . scripts/lib.sh
+          # Secure cookies are not sent over plain HTTP, and CI talks HTTP to the ingress.
+          set_kv k8s/overlays/dev/api.env COOKIE_SECURE false
+
+      - name: Start Postgres and Redis
+        run: |
+          . scripts/lib.sh
+          docker network create kind
+          user="$(get_kv infra/.db.dev.env POSTGRES_USER)"
+          docker run -d --name hang-db --network kind --env-file infra/.db.dev.env \
+            postgres:16 -c max_connections=200
+          docker run -d --name hang-redis-dev --network kind redis:7-alpine
+          until docker exec hang-db pg_isready -h 127.0.0.1 -U "$user"; do sleep 1; done
+          docker exec hang-db psql -h 127.0.0.1 -U "$user" -d postgres -c 'CREATE DATABASE hang_dev'
+          docker exec -i hang-db psql -h 127.0.0.1 -U "$user" -d hang_dev -v ON_ERROR_STOP=1 -q < infra/init.sql
+
+      - name: Build images
+        run: |
+          docker build -f hang-backend/Dockerfile.hang -t hang-backend:local hang-backend
+          docker build -t hang-frontend:local hang-frontend
+
+      - name: Write kind config
+        run: |
+          . scripts/lib.sh
+          cat > "$LOCAL_DIR/ci-kind.yml" <<EOF
+          kind: Cluster
+          apiVersion: kind.x-k8s.io/v1alpha4
+          name: hang
+          nodes:
+            - role: control-plane
+              image: $KIND_NODE_IMAGE
+              extraPortMappings:
+                - containerPort: 80
+                  hostPort: 8080
+                  listenAddress: "127.0.0.1"
+                  protocol: TCP
+          EOF
+
+      - uses: helm/kind-action@v1
+        with:
+          cluster_name: hang
+          config: .local/ci-kind.yml
+
+      - name: Install ingress and deploy dev
+        run: |
+          . scripts/lib.sh
+          # One node plays every role: ingress host, "shared" pool, and workload node.
+          kubectl label node hang-control-plane ingress-ready=true hang/pool=shared --overwrite
+          kubectl taint nodes --all node-role.kubernetes.io/control-plane- || true
+          kind load docker-image hang-backend:local hang-frontend:local --name hang
+          kubectl apply -f "$INGRESS_MANIFEST"
+          kubectl -n ingress-nginx rollout status deployment/ingress-nginx-controller --timeout=240s
+          kubectl apply -k k8s/overlays/dev
+          kubectl -n dev rollout status deployment/api --timeout=240s
+          kubectl -n dev rollout status deployment/frontend --timeout=120s
+
+      - name: Smoke test through the ingress
+        run: |
+          echo "127.0.0.1 dev.localtest.me" | sudo tee -a /etc/hosts
+          pip install httpx "websockets>=14"
+          python scripts/smoke_test.py http://dev.localtest.me:8080
+
+      - name: Dump cluster state on failure
+        if: failure()
+        run: |
+          kubectl get pods -A -o wide || true
+          kubectl -n dev describe pods || true
+          kubectl -n dev logs deploy/api --tail=100 || true

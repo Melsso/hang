@@ -1,18 +1,30 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-set -e
+# Usage: ./stop.sh            deletes the cluster, stops Postgres/Redis (data is kept)
+#        ./stop.sh --purge    also removes those containers and their data
 
-echo "Stopping compose stack..."
+set -euo pipefail
+. "$(dirname "$0")/scripts/lib.sh"
 
-docker compose down
+PURGE=0
+if [ "${1:-}" = "--purge" ]; then PURGE=1; fi
 
-echo "Stopping Redis..."
+need docker kind
 
-docker stop hang-redis-local || true
+log "Deleting kind cluster '$CLUSTER_NAME'"
+kind delete cluster --name "$CLUSTER_NAME" >/dev/null 2>&1 || true
 
-echo "Stopping Postgres..."
+CONTAINERS="hang-db hang-db-prod"
+for e in $ENVS; do CONTAINERS="$CONTAINERS $(env_redis_host "$e")"; done
 
-docker stop hang-db-local || true
+for c in $CONTAINERS; do
+  if [ "$PURGE" -eq 1 ]; then
+    echo "Removing $c..."
+    docker rm -fv "$c" >/dev/null 2>&1 || true
+  else
+    echo "Stopping $c..."
+    docker stop "$c" >/dev/null 2>&1 || true
+  fi
+done
 
-echo ""
-echo "Cleanup complete."
+log "Done."

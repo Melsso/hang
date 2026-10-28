@@ -3,6 +3,46 @@
 All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+
+## [0.2.0] - 28.10.2026
+
+### Added
+- `/health` (liveness) and `/ready` (readiness) endpoints, wired into startup, readiness and liveness probes.
+- `infra/init.sql` as the single source of the database schema, applied by `start.sh`.
+- WebSocket reconnect with exponential backoff and jitter, and a resync of conversations after each reconnect.
+- `DB_POOL_SIZE` and `DB_MAX_OVERFLOW` settings with defaults.
+- `.dockerignore` files for the frontend and backend.
+- `scripts/setup-env.sh`, `scripts/cluster-up.sh` and `scripts/lib.sh`, called by `start.sh` to provision env files, the cluster, ingress and TLS.
+- Kubernetes base manifests (API and frontend deployments, services, ingress) and dev, qa and prod overlays with their own configuration, scaling and secrets.
+- Kubernetes monitoring: Prometheus and Grafana with pod discovery across the three environments.
+- `scripts/loadtest.sh` and `k8s/loadtest/job.yml.tmpl`: the load test as an in-cluster Job.
+- `scripts/seed-demo.sh` for demo data.
+- Kubernetes CI workflow that renders every overlay, deploys dev to kind and runs `scripts/smoke_test.py`.
+- Frontend test step in CI.
+- GHCR image publishing for backend and frontend on version tags.
+
+### Changed
+- Moved unit tests under `tests/unit_tests` and `smoke_tests` to `tests/integration_tests`; updated backend CI.
+- Frontend Dockerfile and nginx config now live in `hang-frontend`.
+- Prometheus and Grafana moved from Docker to Kubernetes.
+- Rewrote `start.sh` and `stop.sh` around the new infrastructure.
+- API image is multi-stage, pins Poetry and runs as a non-root user.
+- Google sign-in requires a verified email and no longer converts an existing password account.
+- Prod pods are pinned to a tainted node pool and dev/qa to the shared pool.
+- Postgres starts with `max_connections=200`.
+- Load test runs inside the cluster; `LOAD_TEST.md` rewritten with new results.
+
+### Fixed
+- Expired sessions redirected without explanation; all API calls now go through `apiFetch`, which redirects to login with a message.
+- Missing colon in the frontend deployment's memory limit.
+- `.api.env.example` contained Python instead of an env value.
+
+### Removed
+- The API no longer creates database tables; it only connects, with retry.
+- `infra/nginx` (config and frontend Dockerfile), the Docker Compose setup, `k8s/kind-config.yml`, `infra/.db.env.example`, and the `infra/grafana` and `infra/prometheus` directories.
+- `dev_utils/run_loadtest.sh`, `dev_utils/run_demo_seed.sh` and the `--purge-loadtest` option.
+
+
 ## [0.1.0] - 2026-10-10
 
 First tagged version.

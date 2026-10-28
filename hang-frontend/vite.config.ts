@@ -7,7 +7,12 @@ export default defineConfig({
   server: {
     host: "0.0.0.0",
     proxy: {
-      "/api": { target: "http://localhost:8000", ws: true },
+      "/api": {
+        target: "https://dev.localtest.me:8443",
+        ws: true,
+        changeOrigin: true,
+        secure: false,
+      },
     },
   },
   test: {

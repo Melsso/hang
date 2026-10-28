@@ -2,48 +2,58 @@
 
 ## What this tests
 
-The WebSocket layer end to end: real connections through nginx, three API replicas, real Redis pub/sub
-fan-out and real Postgres writes. A message counts as delivered only when the other participant in the
-conversation receives it, which validates cross-replica fan-out under concurrent load.
+The WebSocket layer end to end: real connections through the ingress controller, three API replicas, Redis
+pub/sub fan-out and Postgres writes. A message counts as delivered only when the other participant in the
+conversation receives it.
 
-Tooling, all in `dev_utils/`:
-- `load_test_seed.py` inserts matched user pairs and conversations directly into Postgres (bypassing the
-  rate-limited auth endpoints) and issues JWTs with the same signing logic as login.
-- `load_test_client.py` opens a connection per user, waits for the server's `ready` frame, sends messages,
-  and measures delivery and latency. It also counts server `error` frames.
-- `run_loadtest.sh` builds `Dockerfile.loadtest` and runs both inside the Docker network, because Postgres
-  and Redis are not published to the host.
+Tooling:
+- `scripts/loadtest.sh` builds `hang-backend/Dockerfile.loadtest`, loads it into the kind cluster and runs it
+  as a Kubernetes Job in the target namespace. It deletes the seeded users afterwards.
+- `dev_utils/load_test_seed.py` inserts matched user pairs and conversations directly into Postgres
+  (bypassing the rate-limited auth endpoints) and issues JWTs with the same signing logic as login.
+- `dev_utils/load_test_client.py` opens a connection per user, waits for the server's `ready` frame, sends
+  messages, and measures delivery and latency. It also counts server `error` frames.
 
 ## Environment
 
+Run date: 2026-10-27, `prod` overlay.
+
 - MacBook Air (Apple M4), 16 GB RAM
-- Docker Desktop VM limits: `<fill in CPU / memory from Docker Desktop → Settings → Resources>`
-- Everything ran on one machine: 3 API replicas, nginx, Postgres, Redis and the load generator
-- Connection ramp: 10 pairs per second. Each user sends 50 messages back to back, then a 30 s drain
+- Docker Desktop VM: 10 CPUs, 8 GB memory, 1 GB swap, Resource Saver enabled
+- kind cluster with 1 control-plane node and 3 workers. One worker is tainted and labelled for `prod`; the
+  other two are shared.
+- Hang API: 3 replicas on the prod worker (requests 250m CPU / 384Mi, memory limit 768Mi). DB pool of 5 plus
+  5 overflow per replica.
+- Load generator: one pod on a shared worker (requests 500m CPU / 512Mi, memory limit 1Gi)
+- Postgres 16 and Redis 7 run as Docker containers on the same VM, outside the cluster
+- Path: generator pod, ingress-nginx controller (plain HTTP, port 80), API pods, Redis and Postgres
+- Connection ramp: 10 pairs per second. Each user sends 50 messages back to back, then a 30 s drain.
+  10 s pause between levels.
 
 ## Results
 
-| Connections | Messages | Delivery | p50 (ms) | p95 (ms) | p99 (ms) |
-|---|---|---|---|---|---|
-| 100 | 5,000 | 100% | 44.2 | 79.5 | 110.6 |
-| 200 | 10,000 | 100% | 43.7 | 78.1 | 99.5 |
-| 500 | 25,000 | 100% | 43.7 | 78.7 | 93.9 |
-| 1,000 | 50,000 | 100% | 42.8 | 76.8 | 81.1 |
-| 2,000 | 100,000 | 100% | 43.0 | 77.1 | 82.3 |
+| Connections | Messages | Delivery | p50 (ms) | p95 (ms) | p99 (ms) | Max (ms) |
+|---|---|---|---|---|---|---|
+| 100 | 5,000 | 100% | 86.8 | 225.9 | 277.7 | 344.0 |
+| 200 | 10,000 | 100% | 65.3 | 137.9 | 163.1 | 192.2 |
+| 500 | 25,000 | 100% | 62.5 | 150.5 | 211.2 | 338.1 |
+| 1,000 | 50,000 | 100% | 69.6 | 175.3 | 266.3 | 532.9 |
+| 2,000 | 100,000 | 100% | 88.8 | 314.5 | 551.9 | 1,032.5 |
 
-190,000 messages in total, zero undelivered, zero server error frames, zero connection failures.
+190,000 messages in total, none undelivered, zero server error frames, zero connection failures.
 
-## Interpretation
+## Notes on the measurements
 
-- Median latency stayed flat at about 43 ms across a 20x increase in connections. Tail latency is flat
-  from 200 to 2,000 connections (p99 82 ms at the top).
-- No saturation was reached, so this run does not establish a capacity limit.
-- The higher p99 on the first row (110.6 ms) is most likely cold-start cost: the first level pays for
-  fresh DB connections, uncached plans and TCP warmup.
-- Throughput is deliberately not reported. Run duration includes the connection ramp and the drain, so
-  messages per second reflects the test parameters, not server capacity.
-- Latency is measured at the client, which is a single Python process on the same machine as the whole
-  stack, so client event-loop delay is included.
+- Latency is measured at the client, a single Python process in a pod on the same VM as the rest of the stack,
+  so client event-loop delay is included.
+- Each level was run once. Values are not monotonic in connection count: the 100-connection level, which ran
+  first, has higher p50 and p95 than the 200 and 500 levels. The run does not isolate the reason.
+- p95, p99 and max are highest at the 1,000 and 2,000 connection levels. The generator, ingress, API pods,
+  Redis and Postgres share the VM's CPUs and no per-component measurements were recorded, so the run does not
+  show which part contributes to the tail.
+- Throughput is not reported. Run duration includes the connection ramp and the drain, so messages per second
+  reflects the test parameters, not server capacity.
+- Database connection counts were not recorded during the run.
 
 ## Two bugs this found
 
@@ -64,26 +74,21 @@ fix every level delivered 100%.
 ## What this doesn't test
 
 - Long sustained runs (this is ramp-and-burst over seconds to minutes, not a soak test).
-- Real internet conditions: everything is on one machine over a Docker network.
+- Real internet conditions: everything is on one machine.
 - More than 3 replicas, or replicas added or removed during traffic.
 - Steady chat-like traffic: each pair sends 100 messages back to back.
-- Other infrastructure sizing: results depend on the current nginx, Postgres and Redis configuration.
+- TLS termination: the generator talks plain HTTP to the ingress controller.
+- Postgres and Redis running on separate hosts or inside the cluster.
 
 ## Reproducing
 
-Run from `hang-backend`:
+The cluster must be up with the target environment deployed:
 
 ```bash
-NETWORK=hang-network DB_HOST=hang-db-local REDIS_HOST=hang-redis-local ./dev_utils/run_loadtest.sh
+./start.sh prod
+scripts/loadtest.sh prod
 ```
 
-The stack must be running (`./start.sh 3`). The script seeds 1,000 pairs, runs the sweep at
-50, 100, 250, 500 and 1,000 pairs (100 to 2,000 connections), and writes `load_test_users.json`
-(contains valid JWTs, gitignored) and `load_test_results.json` into `dev_utils/`.
-
-Seeding adds 2,000 users named `LoadTest...`. Remove them before demoing, since they appear in the feed:
-
-```bash
-docker exec hang-db-local psql -U <POSTGRES_USER> -d <POSTGRES_DB> \
-  -c "DELETE FROM users WHERE email LIKE 'loadtest_%@example.com';"
-```
+The script seeds 1,000 pairs (2,000 users named `LoadTest...`), runs the sweep at 50, 100, 250, 500 and 1,000
+pairs, streams the log to `.local/loadtest-<env>-<timestamp>.log`, and deletes the seeded users when it
+exits. The sweep summary table is at the end of that log.

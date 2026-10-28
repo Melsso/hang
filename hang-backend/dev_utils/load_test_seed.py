@@ -9,7 +9,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from hang.schemas.config import conf
-from hang.models.db_models import User, Conversation, Base
+from hang.models.db_models import User, Conversation
 
 HASHED_PASSWORD = bcrypt.hash("loadtest123")
 OUTPUT_PATH = Path("dev_utils/load_test_users.json")
@@ -79,7 +79,6 @@ def main():
         f"@{conf.DB_HOST}:{conf.DB_PORT}/{conf.DB_NAME}"
     )
     engine = create_engine(database_url, echo=False)
-    Base.metadata.create_all(bind=engine)
     db = sessionmaker(bind=engine, autoflush=False, autocommit=False)()
 
     try:
