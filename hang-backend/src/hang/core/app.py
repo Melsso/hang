@@ -19,7 +19,7 @@ def create_app() -> FastAPI:
     setup_logging()
 
     app = FastAPI(
-        title="Hang", description="Dating App", version="0.1.0", lifespan=lifespan
+        title="Hang", description="Dating App", version="0.2.0", lifespan=lifespan
     )
 
     Instrumentator(excluded_handlers=["/health", "/ready", "/metrics"]).instrument(

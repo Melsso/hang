@@ -4,7 +4,7 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 
-## [0.2.0] - In Development
+## [0.2.0] - 28.10.2026
 
 ### Added
 - `/health` (liveness) and `/ready` (readiness) endpoints, wired into startup, readiness and liveness probes.
