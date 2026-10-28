@@ -107,7 +107,13 @@ jobs:
           kind load docker-image hang-backend:local hang-frontend:local --name hang
           kubectl apply -f "$INGRESS_MANIFEST"
           kubectl -n ingress-nginx rollout status deployment/ingress-nginx-controller --timeout=240s
-          kubectl apply -k k8s/overlays/dev
+          kubectl -n ingress-nginx wait --for=condition=ready pod \
+            -l app.kubernetes.io/component=controller --timeout=240s
+          for i in 1 2 3 4 5 6; do
+            if kubectl apply -k k8s/overlays/dev; then break; fi
+            if [ "$i" -eq 6 ]; then echo "apply failed after $i attempts"; exit 1; fi
+            echo "webhook not ready, retrying ($i)"; sleep 5
+          done
           kubectl -n dev rollout status deployment/api --timeout=240s
           kubectl -n dev rollout status deployment/frontend --timeout=120s
 
