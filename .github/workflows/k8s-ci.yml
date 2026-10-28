@@ -23,10 +23,15 @@ on:
       - ".github/workflows/k8s-ci.yml"
   workflow_dispatch:
 
+concurrency:
+  group: k8s-ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   validate:
     name: Validate manifests and scripts
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
 
@@ -70,6 +75,7 @@ jobs:
           until docker exec hang-db pg_isready -h 127.0.0.1 -U "$user"; do sleep 1; done
           docker exec hang-db psql -h 127.0.0.1 -U "$user" -d postgres -c 'CREATE DATABASE hang_dev'
           docker exec -i hang-db psql -h 127.0.0.1 -U "$user" -d hang_dev -v ON_ERROR_STOP=1 -q < infra/init.sql
+          docker exec hang-redis-dev redis-cli ping
 
       - name: Build images
         run: |
@@ -98,34 +104,70 @@ jobs:
           cluster_name: hang
           config: .local/ci-kind.yml
 
-      - name: Install ingress and deploy dev
+      - name: Prepare node and load images
         run: |
-          . scripts/lib.sh
           # One node plays every role: ingress host, "shared" pool, and workload node.
           kubectl label node hang-control-plane ingress-ready=true hang/pool=shared --overwrite
           kubectl taint nodes --all node-role.kubernetes.io/control-plane- || true
           kind load docker-image hang-backend:local hang-frontend:local --name hang
-          kubectl apply -f "$INGRESS_MANIFEST"
+
+      - name: Install ingress-nginx
+        run: |
+          . scripts/lib.sh
+          # Fetching the manifest is a network call; retry it.
+          for i in 1 2 3 4 5; do
+            if kubectl apply -f "$INGRESS_MANIFEST"; then break; fi
+            if [ "$i" -eq 5 ]; then echo "could not apply the ingress manifest"; exit 1; fi
+            sleep 5
+          done
           kubectl -n ingress-nginx rollout status deployment/ingress-nginx-controller --timeout=240s
           kubectl -n ingress-nginx wait --for=condition=ready pod \
             -l app.kubernetes.io/component=controller --timeout=240s
-          for i in 1 2 3 4 5 6; do
+          # The admission webhook is configured by these jobs; the controller can be Ready before they finish.
+          kubectl -n ingress-nginx wait --for=condition=complete job/ingress-nginx-admission-create --timeout=120s
+          kubectl -n ingress-nginx wait --for=condition=complete job/ingress-nginx-admission-patch --timeout=120s
+
+      - name: Deploy dev
+        run: |
+          # The webhook endpoint can lag behind everything above; apply is idempotent, so retry.
+          for i in 1 2 3 4 5 6 7 8 9 10; do
             if kubectl apply -k k8s/overlays/dev; then break; fi
-            if [ "$i" -eq 6 ]; then echo "apply failed after $i attempts"; exit 1; fi
+            if [ "$i" -eq 10 ]; then echo "apply failed after $i attempts"; exit 1; fi
             echo "webhook not ready, retrying ($i)"; sleep 5
           done
           kubectl -n dev rollout status deployment/api --timeout=240s
           kubectl -n dev rollout status deployment/frontend --timeout=120s
 
-      - name: Smoke test through the ingress
+      - name: Wait for ingress routing
         run: |
           echo "127.0.0.1 dev.localtest.me" | sudo tee -a /etc/hosts
+          for i in $(seq 1 45); do
+            code="$(curl -s --max-time 5 -o /dev/null -w '%{http_code}' http://dev.localtest.me:8080/api/auth/session || true)"
+            if [ "$code" = "200" ]; then echo "ingress routing after $i attempt(s)"; exit 0; fi
+            echo "attempt $i: HTTP $code"
+            sleep 2
+          done
+          echo "ingress never routed to the API"
+          exit 1
+
+      - name: Smoke test through the ingress
+        run: |
           pip install httpx "websockets>=14"
-          python scripts/smoke_test.py http://dev.localtest.me:8080
+          # One retry covers a cold first WebSocket upgrade. Each attempt uses 2 of the
+          # 5/min register and login calls per IP, so two attempts stay under the limit.
+          for attempt in 1 2; do
+            if python scripts/smoke_test.py http://dev.localtest.me:8080; then exit 0; fi
+            echo "smoke test attempt $attempt failed"
+            sleep 5
+          done
+          exit 1
 
       - name: Dump cluster state on failure
         if: failure()
         run: |
           kubectl get pods -A -o wide || true
+          kubectl get events -A --sort-by=.lastTimestamp | tail -50 || true
+          kubectl -n dev get ingress,svc,endpoints || true
           kubectl -n dev describe pods || true
           kubectl -n dev logs deploy/api --tail=100 || true
+          kubectl -n ingress-nginx logs deploy/ingress-nginx-controller --tail=100 || true
