@@ -58,10 +58,8 @@ jobs:
 
       - name: Generate env files
         run: |
-          # Non-interactive: placeholders for storage and Google.
           bash scripts/setup-env.sh
           . scripts/lib.sh
-          # Secure cookies are not sent over plain HTTP, and CI talks HTTP to the ingress.
           set_kv k8s/overlays/dev/api.env COOKIE_SECURE false
 
       - name: Start Postgres and Redis
@@ -106,7 +104,6 @@ jobs:
 
       - name: Prepare node and load images
         run: |
-          # One node plays every role: ingress host, "shared" pool, and workload node.
           kubectl label node hang-control-plane ingress-ready=true hang/pool=shared --overwrite
           kubectl taint nodes --all node-role.kubernetes.io/control-plane- || true
           kind load docker-image hang-backend:local hang-frontend:local --name hang
@@ -114,7 +111,6 @@ jobs:
       - name: Install ingress-nginx
         run: |
           . scripts/lib.sh
-          # Fetching the manifest is a network call; retry it.
           for i in 1 2 3 4 5; do
             if kubectl apply -f "$INGRESS_MANIFEST"; then break; fi
             if [ "$i" -eq 5 ]; then echo "could not apply the ingress manifest"; exit 1; fi
@@ -123,13 +119,17 @@ jobs:
           kubectl -n ingress-nginx rollout status deployment/ingress-nginx-controller --timeout=240s
           kubectl -n ingress-nginx wait --for=condition=ready pod \
             -l app.kubernetes.io/component=controller --timeout=240s
-          # The admission webhook is configured by these jobs; the controller can be Ready before they finish.
-          kubectl -n ingress-nginx wait --for=condition=complete job/ingress-nginx-admission-create --timeout=120s
-          kubectl -n ingress-nginx wait --for=condition=complete job/ingress-nginx-admission-patch --timeout=120s
+          for i in $(seq 1 30); do
+            ip="$(kubectl -n ingress-nginx get endpoints ingress-nginx-controller-admission \
+              -o jsonpath='{.subsets[*].addresses[*].ip}' || true)"
+            if [ -n "$ip" ]; then echo "admission webhook has an endpoint"; exit 0; fi
+            sleep 2
+          done
+          echo "admission webhook never got an endpoint"
+          exit 1
 
       - name: Deploy dev
         run: |
-          # The webhook endpoint can lag behind everything above; apply is idempotent, so retry.
           for i in 1 2 3 4 5 6 7 8 9 10; do
             if kubectl apply -k k8s/overlays/dev; then break; fi
             if [ "$i" -eq 10 ]; then echo "apply failed after $i attempts"; exit 1; fi
@@ -153,8 +153,6 @@ jobs:
       - name: Smoke test through the ingress
         run: |
           pip install httpx "websockets>=14"
-          # One retry covers a cold first WebSocket upgrade. Each attempt uses 2 of the
-          # 5/min register and login calls per IP, so two attempts stay under the limit.
           for attempt in 1 2; do
             if python scripts/smoke_test.py http://dev.localtest.me:8080; then exit 0; fi
             echo "smoke test attempt $attempt failed"
